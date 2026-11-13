@@ -142,51 +142,96 @@ function stageOwner(o){
 function stepIndex(o){ if (o.stage==='done') return 5; if (o.stage==='cancelled') return -1; return STEPS.findIndex(s => s.stages.includes(o.stage)); }
 
 // ---------- data ----------
+async function fetchAll(table, cols='*', order){
+  const out = []; const step = 1000;
+  for (let from = 0; ; from += step){
+    let q = sb.from(table).select(cols).range(from, from + step - 1);
+    if (order) q = q.order(order);
+    const { data, error } = await q; if (error) throw error;
+    out.push(...data); if (data.length < step) break;
+  }
+  return out;
+}
 async function loadAll(){
   const q = t => sb.from(t).select('*');
   const [st, cu, or, pa, ta, le, inx, se] = await Promise.all([
-    q('staff').order('name'), q('customers').order('name'), q('orders').order('created_at',{ascending:false}),
+    q('staff').order('name'), fetchAll('customers','*','name'), q('orders').order('created_at',{ascending:false}),
     q('payments').order('paid_on'), q('tasks').order('created_at',{ascending:false}),
-    q('leads').order('name'), q('interactions').order('happened_on',{ascending:false}), q('settings').single()
+    fetchAll('leads','*','name'), q('interactions').order('happened_on',{ascending:false}), q('settings').single()
   ]);
-  for (const r of [st,cu,or,pa,ta,le,inx,se]) if (r.error) throw r.error;
-  S.staff = st.data; S.customers = cu.data; S.orders = or.data; S.payments = pa.data; S.tasks = ta.data;
-  S.leads = le.data; S.interactions = inx.data; S.settings = se.data;
+  for (const r of [st,or,pa,ta,inx,se]) if (r.error) throw r.error;
+  S.staff = st.data; S.customers = cu; S.orders = or.data; S.payments = pa.data; S.tasks = ta.data;
+  S.leads = le; S.interactions = inx.data; S.settings = se.data;
   S.me = S.staff.find(s => s.id === S.uid) || null;
+  // Tally copy
+  const [tc, ts, tr, trc, to, ti] = await Promise.all([
+    fetchAll('tally_customers','key,name,balance_receivable,opening_receivable'),
+    fetchAll('tally_sales','key,date,voucher_number,party,amount,weight_g,taxable_value','date'),
+    fetchAll('tally_returns','key,date,voucher_number,party,amount,weight_g,reference','date'),
+    fetchAll('tally_receipts','key,date,voucher_number,party,amount','date'),
+    fetchAll('tally_outstanding','key,party,bill_ref,bill_date,amount_due','bill_date'),
+    sb.from('tally_imports').select('*').order('imported_at',{ascending:false}).limit(1)
+  ]);
+  S.tally = { cust:Object.fromEntries(tc.map(x=>[x.name,x])), import: ti.data?.[0] || null, by:{} };
+  const by = S.tally.by, slot = p => by[p] || (by[p] = { sales:[], returns:[], receipts:[], open:[] });
+  ts.forEach(x => slot(x.party).sales.push(x)); tr.forEach(x => slot(x.party).returns.push(x));
+  trc.forEach(x => slot(x.party).receipts.push(x)); to.forEach(x => slot(x.party).open.push(x));
   if (isAdmin()) {
     const { count } = await sb.from('whatsapp_outbox').select('id',{count:'exact',head:true}).eq('status','queued');
     S.outboxCount = count || 0;
   }
 }
+const tallyUpto = () => S.tally?.import?.data_upto || null;
+const creditDays = c => c.credit_days ?? S.settings?.credit_days ?? 45;
+const addDays = (d, n) => { const x = new Date(d+'T00:00:00'); x.setDate(x.getDate()+n); return x.toISOString().slice(0,10); };
 
+// every bill for a customer: Tally sales + bills entered in this app that aren't in Tally yet
+function billsOf(c){
+  const t = c.tally_name && S.tally.by[c.tally_name];
+  const tb = t ? t.sales.map(s => ({ date:s.date, no:s.voucher_number, g:Number(s.weight_g)||0, amt:Number(s.amount)||0, taxable:Number(s.taxable_value)||0, due:addDays(s.date, creditDays(c)), src:'tally' })) : [];
+  const known = new Set(tb.map(b => String(b.no).trim().toLowerCase()));
+  const ab = S.orders.filter(o => o.customer_id===c.id && o.bill_amount!=null && o.stage!=='cancelled' && !known.has(String(o.bill_no||'').trim().toLowerCase()))
+    .map(o => ({ date:o.bill_date, no:o.bill_no, g:Number(o.bill_g)||0, amt:Number(o.bill_amount)||0, taxable:0, due:o.due_date, src:'app' }));
+  return tb.concat(ab).sort((a,b) => (a.date||'').localeCompare(b.date||''));
+}
 // grading + collections
 function customerStats(c){
-  const bills = S.orders.filter(o => o.customer_id===c.id && o.bill_amount!=null && o.stage!=='cancelled')
-    .sort((a,b) => (a.bill_date||'').localeCompare(b.bill_date||''));
+  const bills = billsOf(c);
+  const t = c.tally_name && S.tally.by[c.tally_name], tc = c.tally_name && S.tally.cust[c.tally_name];
+  const upto = tallyUpto();
   const pays = S.payments.filter(p => p.customer_id===c.id);
-  const paid = pays.reduce((s,p) => s + Number(p.amount), 0);
-  let left = paid, outstanding = 0, overdue = 0, oldestDue = null;
-  for (const b of bills){
-    const amt = Number(b.bill_amount)||0; const covered = Math.min(left, amt); left -= covered;
-    const open = amt - covered;
-    if (open > 0.5){ outstanding += open; if (b.due_date && b.due_date < today()){ overdue += open; if(!oldestDue) oldestDue = b.due_date; } }
+  let outstanding = 0, overdue = 0, oldestDue = null;
+  if (tc) {
+    const newPays = pays.filter(p => !upto || p.paid_on > upto).reduce((s,p)=>s+Number(p.amount),0);
+    const newBills = bills.filter(b => b.src==='app').reduce((s,b)=>s+b.amt,0);
+    outstanding = Math.max(0, Number(tc.balance_receivable||0) + newBills - newPays);
+    let od = 0;
+    for (const o of (t?.open||[])) { const due = addDays(o.bill_date, creditDays(c)); if (due < today()) { od += Number(o.amount_due); if (!oldestDue || due < oldestDue) oldestDue = due; } }
+    overdue = Math.max(0, Math.min(outstanding, od - newPays));
+    if (!overdue) oldestDue = null;
+  } else {
+    let left = pays.reduce((s,p) => s + Number(p.amount), 0);
+    for (const b of bills){
+      const covered = Math.min(left, b.amt); left -= covered; const open = b.amt - covered;
+      if (open > 0.5){ outstanding += open; if (b.due && b.due < today()){ overdue += open; if(!oldestDue) oldestDue = b.due; } }
+    }
   }
   const from = daysAgo(90);
-  const q = bills.filter(b => (b.bill_date||'') >= from);
-  const qGrams = q.reduce((s,b) => s + (Number(b.bill_g)||0), 0);
+  const retG = (t?.returns||[]).filter(r => r.date >= from).reduce((s,r)=>s+(Number(r.weight_g)||0),0);
+  const qGrams = Math.max(0, bills.filter(b => (b.date||'') >= from).reduce((s,b) => s + b.g, 0) - retG);
   const slab = slabOf(c.stores);
   const targetKg = Number(S.settings?.slab_targets?.[slab]) || 0;
   const pct = targetKg ? (qGrams/1000)/targetKg*100 : 0;
   const cuts = S.settings?.grade_cuts || {A:100,B:60,C:25};
   const grade = !bills.length ? '—' : pct >= cuts.A ? 'A' : pct >= cuts.B ? 'B' : pct >= cuts.C ? 'C' : 'D';
-  const lastBill = bills.length ? bills[bills.length-1].bill_date : null;
-  return { bills, pays, paid, outstanding, overdue, oldestDue, qGrams, targetKg, pct, grade, slab, lastBill };
+  const lastBill = bills.length ? bills[bills.length-1].date : null;
+  return { bills, pays, outstanding, overdue, oldestDue, qGrams, targetKg, pct, grade, slab, lastBill, tally:!!tc };
 }
 function northStars(from, to){
-  const b = S.orders.filter(o => o.bill_g && o.bill_amount && o.stage!=='cancelled' && o.bill_date >= from && o.bill_date < to);
+  const b = S.customers.flatMap(c => billsOf(c)).filter(x => x.g > 0 && x.date >= from && x.date < to);
   if (!b.length) return { n:0, w:0, r:0 };
-  const w = b.reduce((s,o)=>s+Number(o.bill_g),0) / b.length;
-  const r = b.reduce((s,o)=>s+Number(o.bill_amount)/Number(o.bill_g),0) / b.length;
+  const w = b.reduce((s,x)=>s+x.g,0) / b.length;
+  const r = b.reduce((s,x)=>s+(x.taxable || x.amt)/x.g,0) / b.length;
   return { n:b.length, w, r };
 }
 
@@ -293,7 +338,7 @@ function viewHome(v){
   const graded = stats.filter(x => x.grade!=='—').sort((a,b)=>'ABCD'.indexOf(a.grade)-'ABCD'.indexOf(b.grade) || b.pct-a.pct);
   const owed = stats.filter(x => x.overdue>0).sort((a,b)=>b.overdue-a.overdue).slice(0,8);
   v.innerHTML = `<h1>Good ${new Date().getHours()<12?'morning':new Date().getHours()<17?'afternoon':'evening'}, ${esc(S.me.name.split(' ')[0])}</h1>
-  <p class="sub">${myOrders||myTasks ? `You have <a href="#/tasks">${myOrders} order step${myOrders===1?'':'s'} and ${myTasks} task${myTasks===1?'':'s'}</a> waiting.` : 'Nothing is waiting on you right now.'}</p>
+  <p class="sub">${myOrders||myTasks ? `You have <a href="#/tasks">${myOrders} order step${myOrders===1?'':'s'} and ${myTasks} task${myTasks===1?'':'s'}</a> waiting.` : 'Nothing is waiting on you right now.'}${tallyUpto()?` <span class="muted">· Tally data up to ${fmtDate(tallyUpto())}</span>`:''}</p>
   <div class="tiles">
     <div class="card tile"><div class="n">${active.length}</div><div class="l">Orders in progress</div></div>
     <div class="card tile"><div class="n" style="color:${unassigned.length?'var(--bad)':'inherit'}">${unassigned.length}</div><div class="l">Orders waiting for someone to be allocated</div></div>
@@ -304,8 +349,9 @@ function viewHome(v){
   </div>
   ${unassigned.length && isAdmin() ? `<h2>Needs someone allocated</h2>${unassigned.slice(0,5).map(orderCard).join('')}${unassigned.length>5?`<a href="#/orders">See all ${unassigned.length}</a>`:''}`:''}
   <h2>Customer grades (last 90 days vs quarterly target)</h2>
+  ${graded.length?`<div class="row" style="margin-bottom:10px">${['A','B','C','D'].map(g=>`<span class="pill g-${g}" style="font-size:13px;padding:4px 10px">${g}: ${graded.filter(x=>x.grade===g).length}</span>`).join('')}<span class="muted" style="font-size:13px">Top 20 by weight bought shown · <a href="#/customers">see all</a></span></div>`:''}
   ${graded.length ? `<div class="tablewrap"><table><tr><th>Customer</th><th>Size</th><th class="r">Bought</th><th class="r">Target</th><th class="r">Progress</th><th>Grade</th></tr>
-    ${graded.map(x=>`<tr class="click" onclick="location.hash='#/customer/${x.c.id}'"><td class="b">${esc(x.c.name)}<div class="muted" style="font-size:13px">${esc(x.c.city||'')}</div></td><td>${SLAB_LABEL[x.slab]}</td><td class="r">${grams(x.qGrams)}</td><td class="r">${x.targetKg} kg</td><td class="r">${x.pct.toFixed(0)}%</td><td><span class="pill g-${x.grade}">${x.grade}</span></td></tr>`).join('')}
+    ${[...graded].sort((a,b)=>b.qGrams-a.qGrams).slice(0,20).map(x=>`<tr class="click" onclick="location.hash='#/customer/${x.c.id}'"><td class="b">${esc(x.c.name)}<div class="muted" style="font-size:13px">${esc(x.c.city||'')}</div></td><td>${SLAB_LABEL[x.slab]}</td><td class="r">${grams(x.qGrams)}</td><td class="r">${x.targetKg} kg</td><td class="r">${x.pct.toFixed(0)}%</td><td><span class="pill g-${x.grade}">${x.grade}</span></td></tr>`).join('')}
   </table></div>` : `<div class="card empty">Grades show up once customers have bills. Targets: single store ${S.settings.slab_targets['1']} kg, 2–10 stores ${S.settings.slab_targets['2-10']} kg, 11–25 stores ${S.settings.slab_targets['11-25']} kg, 25+ stores ${S.settings.slab_targets['26+']} kg a quarter.</div>`}
   <h2>Overdue collections</h2>
   ${owed.length ? `<div class="tablewrap"><table><tr><th>Customer</th><th class="r">Overdue</th><th class="r">Total to collect</th><th>Late since</th></tr>
@@ -524,11 +570,22 @@ function editCustomer(c = {}, fromLead){
 function viewCustomer(v, id){
   const c = S.customers.find(x => x.id===id); if (!c) { v.innerHTML = '<div class="card empty">Customer not found.</div>'; return; }
   const x = customerStats(c);
-  const ledger = [
-    ...x.bills.map(b => ({ date:b.bill_date, kind:'bill', text:`Bill ${b.bill_no||''} · ${grams(b.bill_g)}`, sub:`due ${fmtDate(b.due_date)}`, amt:Number(b.bill_amount) })),
-    ...x.pays.map(p => ({ date:p.paid_on, kind:'pay', text:`Payment received${p.mode?' · '+p.mode:''}`, sub:p.reference||'', amt:-Number(p.amount), id:p.id }))
+  const t = c.tally_name && S.tally.by[c.tally_name], tc = c.tally_name && S.tally.cust[c.tally_name], upto = tallyUpto();
+  let ledger = [
+    ...x.bills.map(b => ({ date:b.date, kind:'bill', text:`Bill ${b.no||''}${b.g?' · '+grams(b.g):''}`, sub:`${b.src==='tally'?'Tally · ':''}due ${fmtDate(b.due)}`, amt:b.amt })),
+    ...(t?.returns||[]).map(r => ({ date:r.date, kind:'pay', text:`Goods returned · ${r.voucher_number||''}${r.weight_g?' · '+grams(r.weight_g):''}`, sub:'Tally credit note', amt:-Number(r.amount||0) })),
+    ...(t?.receipts||[]).map(r => ({ date:r.date, kind:'pay', text:`Payment received`, sub:`Tally receipt ${r.voucher_number||''}`, amt:-Number(r.amount||0) })),
+    ...x.pays.filter(p => !tc || !upto || p.paid_on > upto).map(p => ({ date:p.paid_on, kind:'pay', text:`Payment received${p.mode?' · '+p.mode:''}`, sub:(p.reference||'') + ' · recorded here', amt:-Number(p.amount), id:p.id }))
   ].sort((a,b) => (a.date||'').localeCompare(b.date||'') || (a.kind==='bill'?-1:1));
-  let bal = 0; ledger.forEach(l => { bal += l.amt; l.bal = bal; });
+  let bal = tc ? Number(tc.opening_receivable||0) : 0;
+  if (tc && bal) ledger.unshift({ date:'2026-04-01', kind:'bill', text:'Opening balance (1 Apr)', sub:'Tally', amt:0, open:bal });
+  ledger.forEach(l => { if (!l.open) bal += l.amt; l.bal = bal; });
+  if (tc) { // journals, discounts etc. that Tally has but we don't list
+    const target = Number(tc.balance_receivable||0) + x.bills.filter(b=>b.src==='app').reduce((s,b)=>s+b.amt,0) - x.pays.filter(p=>!upto||p.paid_on>upto).reduce((s,p)=>s+Number(p.amount),0);
+    const diff = target - bal;
+    if (Math.abs(diff) > 1) ledger.push({ date:upto, kind:'adj', text:'Other Tally entries (journals, adjustments)', sub:'Tally', amt:diff, bal:target });
+  }
+  ledger = ledger.reverse();
   const notes = S.interactions.filter(i => i.customer_id===c.id);
   const canPay = hasRole('accounts');
   v.innerHTML = `<p><a href="#/customers">← Customers</a></p>
@@ -541,10 +598,10 @@ function viewCustomer(v, id){
     <div class="card tile"><div class="n">${grams(x.qGrams)}</div><div class="l">Bought in last 90 days · target ${x.targetKg} kg (${x.pct.toFixed(0)}%)</div></div>
     <div class="card tile"><div class="n">${c.next_followup?fmtDate(c.next_followup):'—'}</div><div class="l">Next follow-up</div></div>
   </div>
-  <h2>Collections</h2>
+  <h2>Collections <span class="muted" style="font-weight:400;font-size:13px">· newest first${tc&&upto?` · Tally data up to ${fmtDate(upto)}`:''}</span></h2>
   ${ledger.length?`<div class="tablewrap"><table><tr><th>Date</th><th>What</th><th class="r">Billed</th><th class="r">Paid</th><th class="r">Balance</th>${canPay?'<th></th>':''}</tr>
     ${ledger.map(l=>`<tr><td>${fmtDate(l.date)}</td><td>${esc(l.text)}<div class="muted" style="font-size:13px">${esc(l.sub)}</div></td>
-      <td class="r">${l.amt>0?rupees(l.amt):''}</td><td class="r" style="color:var(--ok)">${l.amt<0?rupees(-l.amt):''}</td><td class="r b">${rupees(l.bal)}</td>
+      <td class="r">${l.amt>0?rupees(l.amt):l.open?rupees(l.open):''}</td><td class="r" style="color:var(--ok)">${l.amt<0?rupees(-l.amt):''}</td><td class="r b">${rupees(l.bal)}</td>
       ${canPay?`<td>${l.id?`<button class="link" style="font-size:13px;color:var(--muted)" data-delpay="${l.id}">Remove</button>`:''}</td>`:''}</tr>`).join('')}
   </table></div>`:`<div class="card empty">No bills or payments yet.</div>`}
   <h2>Follow-up notes</h2>
