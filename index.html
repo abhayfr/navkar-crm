@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Navkar Sterling Silver</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg:#f6f5f2; --card:#fff; --ink:#1d1d1f; --muted:#6b6b70; --line:#e6e4df;
+  --brand:#3a4a5c; --brand-soft:#e9edf2; --ok:#2f7d4f; --ok-soft:#e5f2ea;
+  --warn:#a86a12; --warn-soft:#fbf0dc; --bad:#b23b3b; --bad-soft:#f8e4e4;
+  --radius:12px;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.45}
+button,input,select,textarea{font:inherit}
+a{color:var(--brand)}
+.hidden{display:none!important}
+header{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}
+.bar{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:12px 16px}
+.logo{font-weight:700;letter-spacing:.2px;white-space:nowrap}
+.logo small{display:block;font-weight:500;color:var(--muted);font-size:12px}
+nav{display:flex;gap:4px;overflow-x:auto;flex:1}
+nav a{padding:8px 12px;border-radius:8px;text-decoration:none;color:var(--muted);white-space:nowrap;font-weight:500}
+nav a.on{background:var(--brand-soft);color:var(--brand)}
+.who{font-size:13px;color:var(--muted);white-space:nowrap;text-align:right}
+.who button{margin-top:2px}
+main{max-width:1100px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:22px;margin:0 0 4px}
+h2{font-size:16px;margin:24px 0 10px}
+.sub{color:var(--muted);margin:0 0 18px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.spread{justify-content:space-between}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.tile .n{font-size:24px;font-weight:700}
+.tile .l{color:var(--muted);font-size:13px}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:8px 14px;cursor:pointer;font-weight:500}
+.btn:hover{border-color:#c9c6bf}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.danger{color:var(--bad)}
+.btn.small{padding:4px 10px;font-size:13px}
+.link{background:none;border:none;color:var(--brand);cursor:pointer;padding:0;font-weight:500}
+input,select,textarea{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fff;width:100%}
+textarea{min-height:70px}
+label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+table{width:100%;border-collapse:collapse;background:var(--card)}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+tr.click{cursor:pointer} tr.click:hover td{background:#faf9f7}
+.tablewrap{border:1px solid var(--line);border-radius:var(--radius);overflow:auto}
+.pill{display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;font-weight:600;background:var(--brand-soft);color:var(--brand);white-space:nowrap}
+.pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.warn{background:var(--warn-soft);color:var(--warn)} .pill.bad{background:var(--bad-soft);color:var(--bad)} .pill.grey{background:#eee;color:#666}
+.g-A{background:var(--ok-soft);color:var(--ok)} .g-B{background:var(--brand-soft);color:var(--brand)} .g-C{background:var(--warn-soft);color:var(--warn)} .g-D{background:var(--bad-soft);color:var(--bad)}
+.muted{color:var(--muted)} .r{text-align:right} .b{font-weight:600}
+.tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.tabs button{border:1px solid var(--line);background:var(--card);padding:6px 12px;border-radius:99px;cursor:pointer}
+.tabs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+/* order card */
+.order{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin-bottom:12px}
+.order .top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.order .no{font-weight:700}
+.steps{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:12px}
+.step{border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:0}
+.step .t{font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:4px}
+.step .p{font-weight:600;font-size:14px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.step select{padding:4px 6px;font-size:13px;margin-top:4px}
+.step.done{background:var(--ok-soft);border-color:#cfe6d8}
+.step.now{border-color:var(--brand);box-shadow:0 0 0 2px var(--brand-soft)}
+.step.empty .p{color:var(--bad)}
+.order .act{margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.facts{font-size:13px;color:var(--muted);margin-top:8px}
+@media (max-width:760px){
+  .steps{grid-template-columns:1fr 1fr}
+  .grid2{grid-template-columns:1fr}
+  .bar{flex-wrap:wrap} nav{order:3;flex-basis:100%}
+}
+/* modal */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:flex-start;justify-content:center;padding:40px 12px;z-index:50;overflow:auto}
+.modal{background:var(--card);border-radius:14px;width:100%;max-width:520px;padding:20px}
+.modal h3{margin:0 0 6px}
+.modal .foot{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.err{color:var(--bad);font-size:14px;margin-top:10px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;z-index:60;font-size:14px}
+.auth{max-width:380px;margin:60px auto;padding:0 16px}
+.auth .card{padding:24px}
+.auth h1{font-size:20px}
+.list-item{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.list-item:last-child{border-bottom:none}
+.chk{display:inline-flex;align-items:center;gap:6px;margin:4px 12px 4px 0;color:var(--ink);font-size:14px}
+.chk input{width:auto}
+.empty{color:var(--muted);padding:20px;text-align:center}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const SB_URL = 'https://xflqrfxqeueuaauafroi.supabase.co';
+const SB_KEY = 'sb_publishable_5aYSudROvQb2hosCLHLaaw_lVIWyu7b';
+const COMPANY = 'Navkar Sterling Silver';
+const sb = supabase.createClient(SB_URL, SB_KEY);
+
+const S = { me:null, staff:[], customers:[], orders:[], payments:[], tasks:[], leads:[], interactions:[], settings:null, outboxCount:0 };
+const ROLE_NAMES = { admin:'Admin', accounts:'Accounts', picker:'Picking', checker:'Weight check', packer:'Packing', sales:'Sales' };
+const STEPS = [
+  { field:'picker',    label:'Pick',          need:'picker',   doneAt:'picked_at',    stages:['received','picking'] },
+  { field:'estimator', label:'Estimate',      need:'accounts', doneAt:'estimated_at', stages:['estimate'] },
+  { field:'checker',   label:'Weight check',  need:'checker',  doneAt:'checked_at',   stages:['checking'] },
+  { field:'biller',    label:'Bill',          need:'accounts', doneAt:'billed_at',    stages:['billing'] },
+  { field:'packer',    label:'Pack & ship',   need:'packer',   doneAt:'shipped_at',   stages:['shipping'] },
+];
+const STAGE_TEXT = { received:'Waiting to be picked', picking:'Waiting to be picked', estimate:'Waiting for estimate', checking:'Waiting for weight check', billing:'Waiting for bill', shipping:'Waiting to pack & ship', done:'Shipped', cancelled:'Cancelled' };
+
+// ---------- helpers ----------
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const rupees = n => '₹' + Math.round(Number(n)||0).toLocaleString('en-IN');
+const grams = g => { g = Number(g)||0; return g >= 1000 ? (g/1000).toLocaleString('en-IN',{maximumFractionDigits:2})+' kg' : g.toLocaleString('en-IN',{maximumFractionDigits:1})+' g'; };
+const today = () => new Date().toISOString().slice(0,10);
+const daysAgo = n => { const d = new Date(); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10); };
+const fmtDate = d => d ? new Date(d + (d.length===10?'T00:00:00':'')).toLocaleDateString('en-IN',{day:'numeric',month:'short'}) : '';
+const daysBetween = (a,b) => Math.round((new Date(b) - new Date(a)) / 86400000);
+const isAdmin = () => S.me?.roles?.includes('admin');
+const hasRole = r => isAdmin() || S.me?.roles?.includes(r);
+const staffName = id => S.staff.find(s => s.id === id)?.name || '';
+const custName = id => S.customers.find(c => c.id === id)?.name || '—';
+function toast(msg){ const t = document.createElement('div'); t.className='toast'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(), 2600); }
+function friendly(e){ const m = (e && (e.message || e.error_description || e.error)) || String(e); return m.replace(/^.*?ERROR:\s*/,''); }
+
+function slabOf(stores){ stores = Number(stores)||1; return stores <= 1 ? '1' : stores <= 10 ? '2-10' : stores <= 25 ? '11-25' : '26+'; }
+const SLAB_LABEL = { '1':'Single store', '2-10':'2–10 stores', '11-25':'11–25 stores', '26+':'25+ stores' };
+
+function stageOwner(o){
+  if (['received','picking'].includes(o.stage)) return o.picker;
+  return { estimate:o.estimator, checking:o.checker, billing:o.biller, shipping:o.packer }[o.stage] || null;
+}
+function stepIndex(o){ if (o.stage==='done') return 5; if (o.stage==='cancelled') return -1; return STEPS.findIndex(s => s.stages.includes(o.stage)); }
+
+// ---------- data ----------
+async function loadAll(){
+  const q = t => sb.from(t).select('*');
+  const [st, cu, or, pa, ta, le, inx, se] = await Promise.all([
+    q('staff').order('name'), q('customers').order('name'), q('orders').order('created_at',{ascending:false}),
+    q('payments').order('paid_on'), q('tasks').order('created_at',{ascending:false}),
+    q('leads').order('name'), q('interactions').order('happened_on',{ascending:false}), q('settings').single()
+  ]);
+  for (const r of [st,cu,or,pa,ta,le,inx,se]) if (r.error) throw r.error;
+  S.staff = st.data; S.customers = cu.data; S.orders = or.data; S.payments = pa.data; S.tasks = ta.data;
+  S.leads = le.data; S.interactions = inx.data; S.settings = se.data;
+  S.me = S.staff.find(s => s.id === S.uid) || null;
+  if (isAdmin()) {
+    const { count } = await sb.from('whatsapp_outbox').select('id',{count:'exact',head:true}).eq('status','queued');
+    S.outboxCount = count || 0;
+  }
+}
+
+// grading + collections
+function customerStats(c){
+  const bills = S.orders.filter(o => o.customer_id===c.id && o.bill_amount!=null && o.stage!=='cancelled')
+    .sort((a,b) => (a.bill_date||'').localeCompare(b.bill_date||''));
+  const pays = S.payments.filter(p => p.customer_id===c.id);
+  const paid = pays.reduce((s,p) => s + Number(p.amount), 0);
+  let left = paid, outstanding = 0, overdue = 0, oldestDue = null;
+  for (const b of bills){
+    const amt = Number(b.bill_amount)||0; const covered = Math.min(left, amt); left -= covered;
+    const open = amt - covered;
+    if (open > 0.5){ outstanding += open; if (b.due_date && b.due_date < today()){ overdue += open; if(!oldestDue) oldestDue = b.due_date; } }
+  }
+  const from = daysAgo(90);
+  const q = bills.filter(b => (b.bill_date||'') >= from);
+  const qGrams = q.reduce((s,b) => s + (Number(b.bill_g)||0), 0);
+  const slab = slabOf(c.stores);
+  const targetKg = Number(S.settings?.slab_targets?.[slab]) || 0;
+  const pct = targetKg ? (qGrams/1000)/targetKg*100 : 0;
+  const cuts = S.settings?.grade_cuts || {A:100,B:60,C:25};
+  const grade = !bills.length ? '—' : pct >= cuts.A ? 'A' : pct >= cuts.B ? 'B' : pct >= cuts.C ? 'C' : 'D';
+  const lastBill = bills.length ? bills[bills.length-1].bill_date : null;
+  return { bills, pays, paid, outstanding, overdue, oldestDue, qGrams, targetKg, pct, grade, slab, lastBill };
+}
+function northStars(from, to){
+  const b = S.orders.filter(o => o.bill_g && o.bill_amount && o.stage!=='cancelled' && o.bill_date >= from && o.bill_date < to);
+  if (!b.length) return { n:0, w:0, r:0 };
+  const w = b.reduce((s,o)=>s+Number(o.bill_g),0) / b.length;
+  const r = b.reduce((s,o)=>s+Number(o.bill_amount)/Number(o.bill_g),0) / b.length;
+  return { n:b.length, w, r };
+}
+
+// ---------- modal ----------
+function modal({ title, sub='', body, submit='Save', onSubmit, danger }){
+  const wrap = document.createElement('div'); wrap.className='scrim';
+  wrap.innerHTML = `<form class="modal"><h3>${esc(title)}</h3>${sub?`<p class="sub">${sub}</p>`:''}<div class="mb">${body}</div>
+    <div class="err hidden"></div>
+    <div class="foot"><button type="button" class="btn" data-x>Cancel</button>${onSubmit && submit!==null?`<button class="btn ${danger?'danger':'primary'}" type="submit">${esc(submit)}</button>`:''}</div></form>`;
+  document.body.appendChild(wrap);
+  const form = wrap.querySelector('form'), err = wrap.querySelector('.err');
+  const close = () => wrap.remove();
+  wrap.querySelector('[data-x]').onclick = close;
+  wrap.addEventListener('mousedown', e => { if (e.target===wrap) close(); });
+  form.onsubmit = async e => {
+    e.preventDefault(); if (!onSubmit) return;
+    const btns = [...form.querySelectorAll('[type=submit]:not([hidden])')]; btns.forEach(b => b.disabled = true); err.classList.add('hidden');
+    const data = Object.fromEntries(new FormData(form).entries());
+    data._submitter = e.submitter?.value;
+    try { const keep = await onSubmit(data, form); if (keep !== true) close(); }
+    catch(ex){ err.textContent = friendly(ex); err.classList.remove('hidden'); btns.forEach(b => b.disabled = false); }
+  };
+  const first = form.querySelector('input,select,textarea'); if (first) first.focus();
+  return { form, close };
+}
+const opt = (v, label, sel) => `<option value="${esc(v)}" ${sel?'selected':''}>${esc(label)}</option>`;
+function staffOptions(need, selected, blank='— choose —'){
+  const list = S.staff.filter(s => s.active && (s.roles.includes(need) || (need!=='accounts' && s.roles.includes('admin')) ));
+  const sorted = list.sort((a,b) => (b.roles.includes(need)) - (a.roles.includes(need)) || a.name.localeCompare(b.name));
+  return opt('', blank, !selected) + sorted.map(s => opt(s.id, s.name, s.id===selected)).join('');
+}
+
+// ---------- auth screens ----------
+function phoneToEmail(p){ return String(p).replace(/\D/g,'').slice(-10) + '@staff.navkar.app'; }
+async function callStaffAdmin(body){
+  const { data:{ session } } = await sb.auth.getSession();
+  const res = await fetch(SB_URL + '/functions/v1/staff-admin', { method:'POST',
+    headers:{ 'Content-Type':'application/json', apikey:SB_KEY, Authorization:'Bearer ' + (session?.access_token || SB_KEY) },
+    body: JSON.stringify(body) });
+  const j = await res.json().catch(() => ({ error:'Server did not respond' }));
+  if (!res.ok || j.error) throw new Error(j.error || 'Something went wrong');
+  return j;
+}
+function renderLogin(needsSetup){
+  $('#app').innerHTML = `<div class="auth"><div class="card">
+    <h1>${COMPANY}</h1>
+    ${needsSetup ? `<p class="sub">First time here. Create the admin login — this person can add everyone else.</p>
+      <form id="f"><label>Your name</label><input name="name" required>
+      <label>Phone number</label><input name="phone" inputmode="numeric" placeholder="10-digit mobile" required>
+      <label>Choose a password</label><input name="password" type="password" minlength="6" required>
+      <div class="err hidden"></div><p><button class="btn primary" style="width:100%">Create admin and sign in</button></p></form>`
+    : `<p class="sub">Sign in with your phone number.</p>
+      <form id="f"><label>Phone number</label><input name="phone" inputmode="numeric" placeholder="10-digit mobile" required autocomplete="username">
+      <label>Password</label><input name="password" type="password" required autocomplete="current-password">
+      <div class="err hidden"></div><p><button class="btn primary" style="width:100%">Sign in</button></p>
+      <p class="muted" style="font-size:13px">Forgot your password? Ask your admin to reset it.</p></form>`}
+  </div></div>`;
+  $('#f').onsubmit = async e => {
+    e.preventDefault(); const d = Object.fromEntries(new FormData(e.target)); const err = e.target.querySelector('.err');
+    const btn = e.target.querySelector('button'); btn.disabled = true; err.classList.add('hidden');
+    try {
+      if (needsSetup) await callStaffAdmin({ action:'create', name:d.name, phone:d.phone, password:d.password, roles:['admin'] });
+      const { error } = await sb.auth.signInWithPassword({ email: phoneToEmail(d.phone), password: d.password });
+      if (error) throw new Error(error.message.includes('Invalid') ? 'Phone number or password is wrong' : error.message);
+      boot();
+    } catch(ex){ err.textContent = friendly(ex); err.classList.remove('hidden'); btn.disabled = false; }
+  };
+}
+
+// ---------- shell ----------
+function navItems(){
+  const items = [['home','Home'],['tasks','Task list'],['orders','Orders'],['customers','Customers'],['leads','Leads']];
+  if (isAdmin()) items.push(['staff','Staff'],['settings','Settings']);
+  return items;
+}
+function shell(){
+  $('#app').innerHTML = `<header><div class="bar">
+    <div class="logo">${COMPANY}<small>Orders, collections & leads</small></div>
+    <nav id="nav"></nav>
+    <div class="who">${esc(S.me.name)}<br><button class="link" id="logout">Sign out</button></div>
+  </div></header><main id="view"></main>`;
+  $('#logout').onclick = async () => { await sb.auth.signOut(); boot(); };
+}
+function route(){
+  const [page, id] = (location.hash.replace(/^#\/?/,'') || 'home').split('/');
+  $('#nav').innerHTML = navItems().map(([k,l]) => `<a href="#/${k}" class="${(page===k || (page==='customer'&&k==='customers'))?'on':''}">${l}</a>`).join('');
+  const v = $('#view');
+  const views = { home:viewHome, tasks:viewTasks, orders:viewOrders, customers:viewCustomers, customer:viewCustomer, leads:viewLeads, staff:viewStaff, settings:viewSettings };
+  (views[page] || viewHome)(v, id);
+}
+async function refresh(){ await loadAll(); route(); }
+window.addEventListener('hashchange', () => S.me && route());
+
+// ---------- HOME ----------
+function viewHome(v){
+  const active = S.orders.filter(o => !['done','cancelled'].includes(o.stage));
+  const unassigned = active.filter(o => !stageOwner(o));
+  const stats = S.customers.map(c => ({ c, ...customerStats(c) }));
+  const outstanding = stats.reduce((s,x)=>s+x.outstanding,0), overdue = stats.reduce((s,x)=>s+x.overdue,0);
+  const now = northStars(daysAgo(90), '9999'), prev = northStars(daysAgo(180), daysAgo(90));
+  const delta = (a,b,f) => !b ? '' : `<span class="${a>=b?'':'muted'}" style="font-size:12px"> ${a>=b?'▲':'▼'} vs ${f(b)}</span>`;
+  const myOrders = active.filter(o => stageOwner(o) === S.me.id).length;
+  const myTasks = S.tasks.filter(t => t.assignee===S.me.id && t.status==='open').length;
+  const graded = stats.filter(x => x.grade!=='—').sort((a,b)=>'ABCD'.indexOf(a.grade)-'ABCD'.indexOf(b.grade) || b.pct-a.pct);
+  const owed = stats.filter(x => x.overdue>0).sort((a,b)=>b.overdue-a.overdue).slice(0,8);
+  v.innerHTML = `<h1>Good ${new Date().getHours()<12?'morning':new Date().getHours()<17?'afternoon':'evening'}, ${esc(S.me.name.split(' ')[0])}</h1>
+  <p class="sub">${myOrders||myTasks ? `You have <a href="#/tasks">${myOrders} order step${myOrders===1?'':'s'} and ${myTasks} task${myTasks===1?'':'s'}</a> waiting.` : 'Nothing is waiting on you right now.'}</p>
+  <div class="tiles">
+    <div class="card tile"><div class="n">${active.length}</div><div class="l">Orders in progress</div></div>
+    <div class="card tile"><div class="n" style="color:${unassigned.length?'var(--bad)':'inherit'}">${unassigned.length}</div><div class="l">Orders waiting for someone to be allocated</div></div>
+    <div class="card tile"><div class="n">${rupees(outstanding)}</div><div class="l">To collect</div></div>
+    <div class="card tile"><div class="n" style="color:${overdue?'var(--bad)':'inherit'}">${rupees(overdue)}</div><div class="l">Overdue (past ${S.settings.credit_days} days)</div></div>
+    <div class="card tile"><div class="n">${now.n?grams(now.w):'—'}</div><div class="l">Average weight per bill · last 90 days${now.n?delta(now.w,prev.w,grams):''}</div></div>
+    <div class="card tile"><div class="n">${now.n?'₹'+now.r.toFixed(0)+'/g':'—'}</div><div class="l">Average rate per bill · last 90 days${now.n?delta(now.r,prev.r,x=>'₹'+x.toFixed(0)):''}</div></div>
+  </div>
+  ${unassigned.length && isAdmin() ? `<h2>Needs someone allocated</h2>${unassigned.slice(0,5).map(orderCard).join('')}${unassigned.length>5?`<a href="#/orders">See all ${unassigned.length}</a>`:''}`:''}
+  <h2>Customer grades (last 90 days vs quarterly target)</h2>
+  ${graded.length ? `<div class="tablewrap"><table><tr><th>Customer</th><th>Size</th><th class="r">Bought</th><th class="r">Target</th><th class="r">Progress</th><th>Grade</th></tr>
+    ${graded.map(x=>`<tr class="click" onclick="location.hash='#/customer/${x.c.id}'"><td class="b">${esc(x.c.name)}<div class="muted" style="font-size:13px">${esc(x.c.city||'')}</div></td><td>${SLAB_LABEL[x.slab]}</td><td class="r">${grams(x.qGrams)}</td><td class="r">${x.targetKg} kg</td><td class="r">${x.pct.toFixed(0)}%</td><td><span class="pill g-${x.grade}">${x.grade}</span></td></tr>`).join('')}
+  </table></div>` : `<div class="card empty">Grades show up once customers have bills. Targets: single store ${S.settings.slab_targets['1']} kg, 2–10 stores ${S.settings.slab_targets['2-10']} kg, 11–25 stores ${S.settings.slab_targets['11-25']} kg, 25+ stores ${S.settings.slab_targets['26+']} kg a quarter.</div>`}
+  <h2>Overdue collections</h2>
+  ${owed.length ? `<div class="tablewrap"><table><tr><th>Customer</th><th class="r">Overdue</th><th class="r">Total to collect</th><th>Late since</th></tr>
+    ${owed.map(x=>`<tr class="click" onclick="location.hash='#/customer/${x.c.id}'"><td class="b">${esc(x.c.name)}</td><td class="r" style="color:var(--bad)">${rupees(x.overdue)}</td><td class="r">${rupees(x.outstanding)}</td><td>${fmtDate(x.oldestDue)} · ${daysBetween(x.oldestDue,today())} days</td></tr>`).join('')}
+  </table></div>` : `<div class="card empty">No overdue payments.</div>`}`;
+  bindOrderCards(v);
+}
+
+// ---------- ORDER CARD ----------
+function orderCard(o){
+  const idx = stepIndex(o), cancelled = o.stage==='cancelled';
+  const owner = stageOwner(o), mine = owner && owner===S.me.id;
+  const steps = STEPS.map((s,i) => {
+    const who = o[s.field], done = idx > i, now = idx === i;
+    const cls = done ? 'done' : now ? 'now' + (who?'':' empty') : '';
+    const tick = done ? '✓' : now ? '●' : '';
+    const person = isAdmin() && !done && !cancelled
+      ? `<select data-assign="${o.id}" data-role="${s.field}">${staffOptions(s.need, who, 'Not allocated')}</select>`
+      : `<div class="p">${who ? esc(staffName(who)) : (done ? '—' : 'Not allocated')}</div>`;
+    return `<div class="step ${cls}"><div class="t"><span>${i+1}. ${s.label}</span><span>${tick}</span></div>${person}</div>`;
+  }).join('');
+  const facts = [];
+  if (o.estimate_g) facts.push(`Estimate ${esc(o.estimate_no||'')} · ${grams(o.estimate_g)} · ${rupees(o.estimate_amount)}`);
+  if (o.checked_g!=null) facts.push(`Checked ${grams(o.checked_g)} ${o.check_ok?'✓ matches':'✗ did not match'}${o.check_note?' — '+esc(o.check_note):''}`);
+  if (o.bill_amount) facts.push(`Bill ${esc(o.bill_no||'')} · ${grams(o.bill_g)} · ${rupees(o.bill_amount)} · due ${fmtDate(o.due_date)}`);
+  if (o.shipment_note) facts.push(`Shipped: ${esc(o.shipment_note)}`);
+  const pillCls = cancelled ? 'grey' : o.stage==='done' ? 'ok' : !owner ? 'bad' : '';
+  const canAct = !cancelled && o.stage!=='done' && (mine || isAdmin()) && owner;
+  return `<div class="order">
+    <div class="top"><div><span class="no">${esc(o.order_no)}</span> · <a href="#/customer/${o.customer_id}">${esc(custName(o.customer_id))}</a>
+      <span class="muted"> · ${fmtDate(o.order_date)}</span>${o.details?`<div class="muted" style="font-size:14px">${esc(o.details)}</div>`:''}</div>
+      <div><span class="pill ${pillCls}">${STAGE_TEXT[o.stage]}${owner && !['done','cancelled'].includes(o.stage) ? ' · '+esc(staffName(owner)) : ''}</span></div></div>
+    <div class="steps">${steps}</div>
+    ${facts.length?`<div class="facts">${facts.join('<br>')}</div>`:''}
+    ${(canAct || (isAdmin() && !cancelled && o.stage!=='done')) ? `<div class="act">
+      ${canAct ? `<button class="btn ${mine?'primary':''} small" data-act="${o.id}">${actionLabel(o)}${!mine?' (as admin)':''}</button>`:''}
+      ${isAdmin() && !cancelled && o.stage!=='done' ? `<button class="link" style="margin-left:auto;color:var(--muted);font-size:13px" data-cancel="${o.id}">Cancel order</button>`:''}
+    </div>`:''}
+  </div>`;
+}
+function actionLabel(o){
+  return { received:'Mark as picked', picking:'Mark as picked', estimate:'Enter estimate', checking:'Check weights', billing:'Enter bill', shipping:'Mark packed & shipped' }[o.stage];
+}
+function bindOrderCards(root){
+  root.querySelectorAll('[data-assign]').forEach(sel => sel.onchange = async () => {
+    sel.disabled = true;
+    const { error } = await sb.rpc('assign_order', { p_order: sel.dataset.assign, p_role: sel.dataset.role, p_staff: sel.value || null });
+    if (error) { toast(friendly(error)); } else toast(sel.value ? `Allocated to ${staffName(sel.value)} — they'll get a WhatsApp` : 'Allocation removed');
+    refresh();
+  });
+  root.querySelectorAll('[data-act]').forEach(b => b.onclick = () => stageAction(S.orders.find(o => o.id===b.dataset.act)));
+  root.querySelectorAll('[data-cancel]').forEach(b => b.onclick = () => {
+    const o = S.orders.find(x => x.id===b.dataset.cancel);
+    modal({ title:`Cancel ${o.order_no}?`, body:`<p>This closes the order for ${esc(custName(o.customer_id))}. It can't be reopened.</p>`, submit:'Cancel order', danger:true,
+      onSubmit: async () => { const { error } = await sb.rpc('cancel_order', { p_order:o.id }); if (error) throw error; toast('Order cancelled'); refresh(); } });
+  });
+}
+async function runStage(o, p){ const { data, error } = await sb.rpc('complete_stage', { p_order:o.id, p }); if (error) throw error; return data; }
+function stageAction(o){
+  const c = custName(o.customer_id);
+  const after = async next => { toast(next==='done' ? `${o.order_no} shipped` : `Done. Next: ${STAGE_TEXT[next].replace('Waiting ','').replace('for ','').replace('to be ','')}`); await refresh(); };
+  if (['received','picking'].includes(o.stage)) return modal({ title:`Picked ${o.order_no}?`, sub:esc(c), body:`<p>Confirm all items for this order have been picked. It will go to accounts for the estimate.</p>`, submit:'Yes, picked',
+    onSubmit: async () => after(await runStage(o, {})) });
+  if (o.stage==='estimate') return modal({ title:`Estimate for ${o.order_no}`, sub:esc(c) + (o.check_ok===false?` · <b style="color:var(--bad)">Weight check failed${o.check_note?': '+esc(o.check_note):''} (checked ${grams(o.checked_g)})</b>`:''),
+    body:`<label>Estimate number</label><input name="estimate_no" value="${esc(o.estimate_no||'')}" required>
+      <div class="grid2"><div><label>Total weight (grams)</label><input name="estimate_g" type="number" step="0.001" min="0" value="${o.estimate_g??''}" required></div>
+      <div><label>Amount (₹)</label><input name="estimate_amount" type="number" step="0.01" min="0" value="${o.estimate_amount??''}" required></div></div>`,
+    submit:'Save and send for weight check', onSubmit: async d => after(await runStage(o, { estimate_no:d.estimate_no, estimate_g:d.estimate_g, estimate_amount:d.estimate_amount })) });
+  if (o.stage==='checking') return modal({ title:`Weight check ${o.order_no}`, sub:`${esc(c)} · Estimate says <b>${grams(o.estimate_g)}</b>`,
+    body:`<button type="submit" disabled hidden></button>
+      <label>Weight on the scale (grams)</label><input name="checked_g" type="number" step="0.001" min="0" required>
+      <label>Note (optional)</label><input name="note" placeholder="e.g. 2 pieces missing">
+      <p class="muted" style="font-size:13px" id="diff"></p>
+      <div class="row"><button class="btn ok" type="submit" value="ok">Matches — send for bill</button><button class="btn danger" type="submit" value="bad">Doesn't match — back to accounts</button></div>`,
+    submit:null, onSubmit: async d => after(await runStage(o, { checked_g:d.checked_g, ok:d._submitter==='ok', note:d.note || null })) })
+    && setTimeout(()=>{ const i = document.querySelector('[name=checked_g]'); i.oninput = () => { const diff = (Number(i.value)||0) - Number(o.estimate_g||0); document.getElementById('diff').textContent = i.value ? `Difference: ${diff>0?'+':''}${diff.toFixed(3)} g` : ''; }; });
+  if (o.stage==='billing') return modal({ title:`Bill for ${o.order_no}`, sub:`${esc(c)} · Checked weight ${grams(o.checked_g)} · Estimate ${rupees(o.estimate_amount)}`,
+    body:`<label>Bill number (as in Tally)</label><input name="bill_no" required>
+      <div class="grid2"><div><label>Billed weight (grams)</label><input name="bill_g" type="number" step="0.001" min="0" value="${o.checked_g??o.estimate_g??''}" required></div>
+      <div><label>Bill amount (₹)</label><input name="bill_amount" type="number" step="0.01" min="0" value="${o.estimate_amount??''}" required></div></div>
+      <label>Bill date</label><input name="bill_date" type="date" value="${today()}" required>`,
+    submit:'Save bill and send for packing', onSubmit: async d => after(await runStage(o, d)) });
+  if (o.stage==='shipping') return modal({ title:`Pack & ship ${o.order_no}`, sub:esc(c),
+    body:`<label>Shipping details (courier, tracking no., or hand delivery)</label><input name="note" required>`,
+    submit:'Mark shipped', onSubmit: async d => after(await runStage(o, { note:d.note })) });
+}
+
+// ---------- ORDERS ----------
+let orderTab = 'active', orderSearch = '';
+function viewOrders(v){
+  const list = S.orders.filter(o => orderTab==='active' ? !['done','cancelled'].includes(o.stage) : orderTab==='open' ? !['done','cancelled'].includes(o.stage) && !stageOwner(o) : orderTab==='done' ? o.stage==='done' : true)
+    .filter(o => !orderSearch || (o.order_no + ' ' + custName(o.customer_id)).toLowerCase().includes(orderSearch.toLowerCase()));
+  const n = k => S.orders.filter(o => k==='active' ? !['done','cancelled'].includes(o.stage) : k==='open' ? !['done','cancelled'].includes(o.stage) && !stageOwner(o) : k==='done' ? o.stage==='done' : true).length;
+  v.innerHTML = `<div class="row spread"><div><h1>Orders</h1><p class="sub">Each order goes: picked → estimate → weight check → bill → packed & shipped.</p></div>
+    ${isAdmin()?`<button class="btn primary" id="new">+ New order</button>`:''}</div>
+    <div class="row spread"><div class="tabs">${[['active','In progress'],['open','Needs allocation'],['done','Shipped'],['all','All']].map(([k,l])=>`<button data-t="${k}" class="${orderTab===k?'on':''}">${l} (${n(k)})</button>`).join('')}</div>
+    <input id="q" placeholder="Search order no. or customer" style="max-width:260px" value="${esc(orderSearch)}"></div>
+    <div id="list">${list.length ? list.map(orderCard).join('') : `<div class="card empty">No orders here.</div>`}</div>`;
+  v.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { orderTab = b.dataset.t; route(); });
+  const q = $('#q'); q.oninput = () => { orderSearch = q.value; const pos = q.selectionStart; route(); const n2=$('#q'); n2.focus(); n2.setSelectionRange(pos,pos); };
+  if ($('#new')) $('#new').onclick = newOrder;
+  bindOrderCards(v);
+}
+function newOrder(){
+  if (!S.customers.length) { toast('Add a customer first'); location.hash = '#/customers'; return; }
+  modal({ title:'New order', sub:'Allocate people now or later. Each person gets a WhatsApp when it’s their turn.',
+    body:`<label>Customer</label><select name="customer_id" required>${opt('','— choose customer —')}${S.customers.map(c=>opt(c.id, c.name + (c.city?' · '+c.city:''))).join('')}</select>
+      <label>What did they order?</label><textarea name="details" placeholder="Items, designs, approx weight…"></textarea>
+      <label>Order date</label><input type="date" name="order_date" value="${today()}">
+      <h2 style="margin-top:18px">Who does what</h2>
+      <div class="grid2">${STEPS.map((s,i)=>`<div><label>${i+1}. ${s.label}${s.need==='accounts'?' (accounts)':''}</label><select name="${s.field}">${staffOptions(s.need, null, 'Later')}</select></div>`).join('')}</div>`,
+    submit:'Create order',
+    onSubmit: async d => {
+      const { data, error } = await sb.from('orders').insert({ customer_id:d.customer_id, details:d.details||null, order_date:d.order_date||today() }).select().single();
+      if (error) throw error;
+      for (const s of STEPS) if (d[s.field]) { const r = await sb.rpc('assign_order', { p_order:data.id, p_role:s.field, p_staff:d[s.field] }); if (r.error) toast(friendly(r.error)); }
+      toast(`${data.order_no} created`); orderTab='active'; location.hash = '#/orders'; refresh();
+    } });
+}
+
+// ---------- TASK LIST ----------
+let taskFilter = 'mine';
+function viewTasks(v){
+  const myOrders = S.orders.filter(o => !['done','cancelled'].includes(o.stage) && stageOwner(o)===S.me.id);
+  const tasks = S.tasks.filter(t => taskFilter==='mine' ? t.assignee===S.me.id : taskFilter==='all' ? true : t.assignee===taskFilter);
+  const open = tasks.filter(t => t.status==='open').sort((a,b)=>(a.due_date||'9999').localeCompare(b.due_date||'9999'));
+  const done = tasks.filter(t => t.status==='done').sort((a,b)=>(b.done_at||'').localeCompare(a.done_at||'')).slice(0,15);
+  const taskRow = t => {
+    const late = t.status==='open' && t.due_date && t.due_date < today();
+    const link = t.customer_id ? ` · <a href="#/customer/${t.customer_id}">${esc(custName(t.customer_id))}</a>` : t.lead_id ? ` · lead: ${esc(S.leads.find(l=>l.id===t.lead_id)?.name||'')}` : '';
+    return `<div class="list-item"><div><div class="b">${esc(t.title)}</div>
+      <div class="muted" style="font-size:13px">${taskFilter!=='mine'?esc(staffName(t.assignee))+' · ':''}${t.due_date?`due ${fmtDate(t.due_date)}`:'no due date'}${link}${t.notes?' · '+esc(t.notes):''}</div>
+      ${t.status==='done'?`<div class="muted" style="font-size:13px">Done ${fmtDate(t.done_at.slice(0,10))}${t.done_note?' — '+esc(t.done_note):''}</div>`:''}</div>
+      <div class="row" style="flex-wrap:nowrap">${late?`<span class="pill bad">${daysBetween(t.due_date,today())}d late</span>`:''}
+      ${t.status==='open' && (t.assignee===S.me.id || isAdmin()) ? `<button class="btn small ok" data-done="${t.id}">Done</button>`:''}
+      ${isAdmin() ? `<button class="link" style="font-size:13px;color:var(--muted)" data-del="${t.id}">Delete</button>`:''}</div></div>`;
+  };
+  v.innerHTML = `<div class="row spread"><div><h1>Task list</h1><p class="sub">Everything waiting on ${taskFilter==='mine'?'you':'the team'}. Reminders go out on WhatsApp every morning at 10 until it’s done.</p></div>
+    ${isAdmin()?`<button class="btn primary" id="newtask">+ Give someone a task</button>`:''}</div>
+    ${isAdmin()?`<div class="tabs"><button data-f="mine" class="${taskFilter==='mine'?'on':''}">Mine</button><button data-f="all" class="${taskFilter==='all'?'on':''}">Everyone</button>
+      <select id="per" style="width:auto;border-radius:99px;padding:5px 10px">${opt('', 'By person…')}${S.staff.filter(s=>s.active).map(s=>opt(s.id,s.name,taskFilter===s.id)).join('')}</select></div>`:''}
+    ${taskFilter==='mine' ? `<h2>Order steps for you (${myOrders.length})</h2>${myOrders.length ? myOrders.map(orderCard).join('') : `<div class="card empty">No orders waiting on you.</div>`}`:''}
+    <h2>Tasks (${open.length})</h2>
+    <div class="card">${open.length ? open.map(taskRow).join('') : `<div class="empty">No open tasks.</div>`}</div>
+    ${done.length?`<h2>Recently done</h2><div class="card">${done.map(taskRow).join('')}</div>`:''}`;
+  bindOrderCards(v);
+  v.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { taskFilter = b.dataset.f; route(); });
+  if ($('#per')) $('#per').onchange = e => { if (e.target.value) { taskFilter = e.target.value; route(); } };
+  if ($('#newtask')) $('#newtask').onclick = () => newTask();
+  v.querySelectorAll('[data-done]').forEach(b => b.onclick = () => {
+    const t = S.tasks.find(x => x.id===b.dataset.done);
+    modal({ title:'Mark done', sub:esc(t.title), body:`<label>Note (optional)</label><input name="note" placeholder="What happened?">`, submit:'Done',
+      onSubmit: async d => { const { error } = await sb.rpc('complete_task', { p_task:t.id, p_note:d.note||null }); if (error) throw error; toast('Task done'); refresh(); } });
+  });
+  v.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+    if (!confirm('Delete this task?')) return;
+    const { error } = await sb.from('tasks').delete().eq('id', b.dataset.del); if (error) toast(friendly(error)); refresh();
+  });
+}
+function newTask(pre = {}){
+  modal({ title:'Give someone a task', sub:'They get a WhatsApp now, and a reminder every morning once it’s due until they mark it done.',
+    body:`<label>What needs doing?</label><input name="title" value="${esc(pre.title||'')}" required placeholder="e.g. Call Mahesh Jewellers about pending payment">
+      <div class="grid2"><div><label>Who</label><select name="assignee" required>${opt('','— choose —')}${S.staff.filter(s=>s.active).map(s=>opt(s.id,s.name)).join('')}</select></div>
+      <div><label>Due</label><input type="date" name="due_date" value="${pre.due||today()}"></div></div>
+      <label>Customer (optional)</label><select name="customer_id">${opt('','—')}${S.customers.map(c=>opt(c.id,c.name,c.id===pre.customer_id)).join('')}</select>
+      <label>Notes (optional)</label><textarea name="notes"></textarea>`,
+    submit:'Assign task',
+    onSubmit: async d => {
+      const { error } = await sb.from('tasks').insert({ title:d.title, assignee:d.assignee, due_date:d.due_date||null, customer_id:d.customer_id||null, notes:d.notes||null, lead_id:pre.lead_id||null });
+      if (error) throw error; toast(`Assigned to ${staffName(d.assignee)}`); refresh();
+    } });
+}
+
+// ---------- CUSTOMERS ----------
+let custSearch = '', custSort = 'overdue';
+function viewCustomers(v){
+  const rows = S.customers.map(c => ({ c, ...customerStats(c) }))
+    .filter(x => !custSearch || (x.c.name+' '+(x.c.city||'')+' '+(x.c.phone||'')).toLowerCase().includes(custSearch.toLowerCase()))
+    .sort((a,b) => custSort==='overdue' ? b.overdue-a.overdue || b.outstanding-a.outstanding : custSort==='grade' ? ('ABCD—'.indexOf(a.grade)-'ABCD—'.indexOf(b.grade)) : a.c.name.localeCompare(b.c.name));
+  v.innerHTML = `<div class="row spread"><div><h1>Customers</h1><p class="sub">${S.customers.length} customers · what each one owes and how they’re tracking against target.</p></div>
+    <button class="btn primary" id="add">+ Add customer</button></div>
+    <div class="row spread" style="margin-bottom:12px"><div class="tabs" style="margin:0">${[['overdue','Most overdue'],['grade','Grade'],['name','A–Z']].map(([k,l])=>`<button data-s="${k}" class="${custSort===k?'on':''}">${l}</button>`).join('')}</div>
+    <input id="q" placeholder="Search name, city, phone" style="max-width:260px" value="${esc(custSearch)}"></div>
+    ${rows.length?`<div class="tablewrap"><table><tr><th>Customer</th><th>Size</th><th>Grade</th><th class="r">To collect</th><th class="r">Overdue</th><th>Last bill</th></tr>
+    ${rows.map(x=>`<tr class="click" onclick="location.hash='#/customer/${x.c.id}'"><td class="b">${esc(x.c.name)}${x.c.key_account?' <span class="pill">Key</span>':''}<div class="muted" style="font-size:13px;font-weight:400">${esc(x.c.city||'')}${x.c.owner?' · '+esc(staffName(x.c.owner)):''}</div></td>
+      <td>${SLAB_LABEL[x.slab]}</td><td><span class="pill g-${x.grade==='—'?'':x.grade} ${x.grade==='—'?'grey':''}">${x.grade==='—'?'New':x.grade}</span></td>
+      <td class="r">${x.outstanding?rupees(x.outstanding):'—'}</td><td class="r" style="color:${x.overdue?'var(--bad)':'inherit'}">${x.overdue?rupees(x.overdue):'—'}</td><td>${x.lastBill?fmtDate(x.lastBill):'—'}</td></tr>`).join('')}
+    </table></div>`:`<div class="card empty">No customers yet. Add one, or convert a lead.</div>`}`;
+  $('#add').onclick = () => editCustomer();
+  v.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { custSort = b.dataset.s; route(); });
+  const q = $('#q'); q.oninput = () => { custSearch = q.value; const p=q.selectionStart; route(); const n=$('#q'); n.focus(); n.setSelectionRange(p,p); };
+}
+function editCustomer(c = {}, fromLead){
+  modal({ title: c.id ? 'Edit customer' : 'Add customer',
+    body:`<label>Business name</label><input name="name" value="${esc(c.name||'')}" required>
+      <div class="grid2"><div><label>Contact person</label><input name="contact" value="${esc(c.contact||'')}"></div>
+      <div><label>Phone</label><input name="phone" value="${esc(c.phone||'')}"></div>
+      <div><label>City</label><input name="city" value="${esc(c.city||'')}"></div>
+      <div><label>Number of stores</label><input name="stores" type="number" min="1" value="${c.stores||1}" required></div>
+      <div><label>GSTIN</label><input name="gstin" value="${esc(c.gstin||'')}"></div>
+      <div><label>Credit days</label><input name="credit_days" type="number" min="0" placeholder="${S.settings.credit_days} (standard)" value="${c.credit_days??''}"></div>
+      <div><label>Looked after by</label><select name="owner">${opt('','—')}${S.staff.filter(s=>s.active).map(s=>opt(s.id,s.name,s.id===c.owner)).join('')}</select></div>
+      <div><label>Next follow-up</label><input type="date" name="next_followup" value="${c.next_followup||''}"></div></div>
+      <label class="chk"><input type="checkbox" name="key_account" ${c.key_account?'checked':''}> Key account</label>
+      <label>Notes</label><textarea name="notes">${esc(c.notes||'')}</textarea>`,
+    onSubmit: async d => {
+      const row = { name:d.name, contact:d.contact||null, phone:d.phone||null, city:d.city||null, stores:Number(d.stores)||1, gstin:d.gstin||null,
+        credit_days: d.credit_days===''?null:Number(d.credit_days), owner:d.owner||null, next_followup:d.next_followup||null, key_account:!!d.key_account, notes:d.notes||null };
+      if (c.id) { const { error } = await sb.from('customers').update(row).eq('id', c.id); if (error) throw error; toast('Saved'); refresh(); return; }
+      if (fromLead) row.lead_id = fromLead.id;
+      const { data, error } = await sb.from('customers').insert(row).select().single(); if (error) throw error;
+      if (fromLead) await sb.from('leads').update({ status:'Converted', customer_id:data.id }).eq('id', fromLead.id);
+      toast('Customer added'); await loadAll(); location.hash = '#/customer/' + data.id;
+    } });
+}
+function viewCustomer(v, id){
+  const c = S.customers.find(x => x.id===id); if (!c) { v.innerHTML = '<div class="card empty">Customer not found.</div>'; return; }
+  const x = customerStats(c);
+  const ledger = [
+    ...x.bills.map(b => ({ date:b.bill_date, kind:'bill', text:`Bill ${b.bill_no||''} · ${grams(b.bill_g)}`, sub:`due ${fmtDate(b.due_date)}`, amt:Number(b.bill_amount) })),
+    ...x.pays.map(p => ({ date:p.paid_on, kind:'pay', text:`Payment received${p.mode?' · '+p.mode:''}`, sub:p.reference||'', amt:-Number(p.amount), id:p.id }))
+  ].sort((a,b) => (a.date||'').localeCompare(b.date||'') || (a.kind==='bill'?-1:1));
+  let bal = 0; ledger.forEach(l => { bal += l.amt; l.bal = bal; });
+  const notes = S.interactions.filter(i => i.customer_id===c.id);
+  const canPay = hasRole('accounts');
+  v.innerHTML = `<p><a href="#/customers">← Customers</a></p>
+  <div class="row spread"><div><h1>${esc(c.name)} ${x.grade!=='—'?`<span class="pill g-${x.grade}">Grade ${x.grade}</span>`:''}</h1>
+    <p class="sub">${[c.contact, c.phone ? `<a href="tel:${esc(c.phone)}">${esc(c.phone)}</a>` : '', c.city, SLAB_LABEL[x.slab], `${c.credit_days ?? S.settings.credit_days}-day credit`, c.owner?'Looked after by '+esc(staffName(c.owner)):''].filter(Boolean).map(s=>s.startsWith('<')?s:esc(s)).join(' · ')}</p></div>
+    <div class="row"><button class="btn" id="edit">Edit</button>${isAdmin()?`<button class="btn" id="task">+ Task</button>`:''}${canPay?`<button class="btn primary" id="pay">Record payment</button>`:''}</div></div>
+  <div class="tiles">
+    <div class="card tile"><div class="n">${rupees(x.outstanding)}</div><div class="l">To collect</div></div>
+    <div class="card tile"><div class="n" style="color:${x.overdue?'var(--bad)':'inherit'}">${rupees(x.overdue)}</div><div class="l">Overdue${x.oldestDue?` · since ${fmtDate(x.oldestDue)}`:''}</div></div>
+    <div class="card tile"><div class="n">${grams(x.qGrams)}</div><div class="l">Bought in last 90 days · target ${x.targetKg} kg (${x.pct.toFixed(0)}%)</div></div>
+    <div class="card tile"><div class="n">${c.next_followup?fmtDate(c.next_followup):'—'}</div><div class="l">Next follow-up</div></div>
+  </div>
+  <h2>Collections</h2>
+  ${ledger.length?`<div class="tablewrap"><table><tr><th>Date</th><th>What</th><th class="r">Billed</th><th class="r">Paid</th><th class="r">Balance</th>${canPay?'<th></th>':''}</tr>
+    ${ledger.map(l=>`<tr><td>${fmtDate(l.date)}</td><td>${esc(l.text)}<div class="muted" style="font-size:13px">${esc(l.sub)}</div></td>
+      <td class="r">${l.amt>0?rupees(l.amt):''}</td><td class="r" style="color:var(--ok)">${l.amt<0?rupees(-l.amt):''}</td><td class="r b">${rupees(l.bal)}</td>
+      ${canPay?`<td>${l.id?`<button class="link" style="font-size:13px;color:var(--muted)" data-delpay="${l.id}">Remove</button>`:''}</td>`:''}</tr>`).join('')}
+  </table></div>`:`<div class="card empty">No bills or payments yet.</div>`}
+  <h2>Follow-up notes</h2>
+  <div class="card"><form id="note" class="row" style="align-items:flex-end">
+    <div style="flex:0 0 120px"><label>Type</label><select name="kind">${['Call','Visit','WhatsApp','Payment reminder','Meeting'].map(k=>opt(k,k)).join('')}</select></div>
+    <div style="flex:1;min-width:200px"><label>What was said</label><input name="note" required></div>
+    <div style="flex:0 0 150px"><label>Next follow-up</label><input type="date" name="next_followup"></div>
+    <button class="btn primary">Add</button></form>
+    ${notes.map(n=>`<div class="list-item"><div><span class="pill grey">${esc(n.kind)}</span> ${esc(n.note)}<div class="muted" style="font-size:13px">${fmtDate(n.happened_on)} · ${esc(staffName(n.created_by))}${n.next_followup?' · follow up '+fmtDate(n.next_followup):''}</div></div></div>`).join('') || '<p class="muted">No notes yet.</p>'}
+  </div>
+  ${c.notes?`<h2>Notes</h2><div class="card">${esc(c.notes)}</div>`:''}`;
+  $('#edit').onclick = () => editCustomer(c);
+  if ($('#task')) $('#task').onclick = () => newTask({ customer_id:c.id, title: x.overdue ? `Collect ${rupees(x.overdue)} overdue from ${c.name}` : `Follow up with ${c.name}` });
+  if ($('#pay')) $('#pay').onclick = () => modal({ title:'Record payment', sub:esc(c.name) + ` · ${rupees(x.outstanding)} to collect`,
+    body:`<div class="grid2"><div><label>Amount (₹)</label><input name="amount" type="number" step="0.01" min="1" required></div>
+      <div><label>Date</label><input type="date" name="paid_on" value="${today()}" required></div>
+      <div><label>Mode</label><select name="mode">${['NEFT/RTGS','UPI','Cheque','Cash','Other'].map(m=>opt(m,m)).join('')}</select></div>
+      <div><label>Reference</label><input name="reference" placeholder="UTR / cheque no."></div></div>`,
+    onSubmit: async d => { const { error } = await sb.from('payments').insert({ customer_id:c.id, amount:Number(d.amount), paid_on:d.paid_on, mode:d.mode, reference:d.reference||null }); if (error) throw error; toast('Payment recorded'); refresh(); } });
+  v.querySelectorAll('[data-delpay]').forEach(b => b.onclick = async () => { if (!confirm('Remove this payment?')) return; const { error } = await sb.from('payments').delete().eq('id', b.dataset.delpay); if (error) toast(friendly(error)); refresh(); });
+  $('#note').onsubmit = async e => { e.preventDefault(); const d = Object.fromEntries(new FormData(e.target));
+    const { error } = await sb.from('interactions').insert({ customer_id:c.id, kind:d.kind, note:d.note, next_followup:d.next_followup||null });
+    if (error) return toast(friendly(error));
+    if (d.next_followup) await sb.from('customers').update({ next_followup:d.next_followup }).eq('id', c.id);
+    toast('Note added'); refresh(); };
+}
+
+// ---------- LEADS ----------
+let leadSlab = 'all', leadStatus = 'open', leadRegion = 'all', leadSearch = '';
+function viewLeads(v){
+  const regions = [...new Set(S.leads.map(l => l.region).filter(Boolean))].sort();
+  const list = S.leads.filter(l => (leadSlab==='all' || slabOf(l.stores)===leadSlab)
+      && (leadStatus==='all' || (leadStatus==='open' ? !['Converted','Lost'].includes(l.status) : l.status===leadStatus))
+      && (leadRegion==='all' || l.region===leadRegion)
+      && (!leadSearch || (l.name+' '+(l.city||'')).toLowerCase().includes(leadSearch.toLowerCase())))
+    .sort((a,b) => (a.region||'').localeCompare(b.region||'') || (a.city||'').localeCompare(b.city||'') || (b.rating||0)-(a.rating||0));
+  const due = S.leads.filter(l => l.next_followup && l.next_followup <= today() && !['Converted','Lost'].includes(l.status)).length;
+  const sc = { New:'', Contacted:'warn', Qualified:'ok', Converted:'ok', Lost:'grey' };
+  v.innerHTML = `<div class="row spread"><div><h1>Leads</h1><p class="sub">${S.leads.length} prospects${due?` · <b style="color:var(--bad)">${due} follow-ups due</b>`:''}. Sorted by region and city.</p></div>
+    <button class="btn primary" id="add">+ Add lead</button></div>
+    <div class="tabs">${[['all','All sizes'],['1','Single store'],['2-10','2–10'],['11-25','11–25'],['26+','25+']].map(([k,l])=>`<button data-sl="${k}" class="${leadSlab===k?'on':''}">${l}</button>`).join('')}</div>
+    <div class="row" style="margin-bottom:12px">
+      <select id="st" style="width:auto">${[['open','Open leads'],['all','All statuses'],['New','New'],['Contacted','Contacted'],['Qualified','Qualified'],['Converted','Converted'],['Lost','Lost']].map(([k,l])=>opt(k,l,leadStatus===k)).join('')}</select>
+      <select id="rg" style="width:auto">${opt('all','All regions')}${regions.map(r=>opt(r,r,leadRegion===r)).join('')}</select>
+      <input id="q" placeholder="Search name or city" style="max-width:240px" value="${esc(leadSearch)}"></div>
+    ${list.length?`<div class="tablewrap"><table><tr><th>Store</th><th>City</th><th>Stores</th><th>Rating</th><th>Status</th><th>Follow up</th><th>Owner</th></tr>
+    ${list.map(l=>`<tr class="click" data-l="${l.id}"><td class="b">${esc(l.name)}<div class="muted" style="font-size:13px;font-weight:400">${esc(l.phone||'')}</div></td>
+      <td>${esc(l.city||'')}<div class="muted" style="font-size:13px">${esc(l.region||'')}</div></td><td>${esc(l.stores_label||l.stores||'')}</td>
+      <td>${l.rating?`★ ${l.rating}<div class="muted" style="font-size:13px">${Number(l.reviews||0).toLocaleString('en-IN')} reviews</div>`:'—'}</td>
+      <td><span class="pill ${sc[l.status]||''}">${esc(l.status)}</span></td>
+      <td style="color:${l.next_followup && l.next_followup<=today()?'var(--bad)':'inherit'}">${l.next_followup?fmtDate(l.next_followup):'—'}</td><td>${esc(l.owner?staffName(l.owner):'')}</td></tr>`).join('')}
+    </table></div>`:`<div class="card empty">No leads match.</div>`}`;
+  v.querySelectorAll('[data-sl]').forEach(b => b.onclick = () => { leadSlab = b.dataset.sl; route(); });
+  $('#st').onchange = e => { leadStatus = e.target.value; route(); };
+  $('#rg').onchange = e => { leadRegion = e.target.value; route(); };
+  const q = $('#q'); q.oninput = () => { leadSearch = q.value; const p=q.selectionStart; route(); const n=$('#q'); n.focus(); n.setSelectionRange(p,p); };
+  $('#add').onclick = () => editLead();
+  v.querySelectorAll('[data-l]').forEach(r => r.onclick = () => openLead(S.leads.find(l => l.id===r.dataset.l)));
+}
+function editLead(l = {}){
+  modal({ title: l.id ? 'Edit lead' : 'Add lead',
+    body:`<label>Store name</label><input name="name" value="${esc(l.name||'')}" required>
+      <div class="grid2"><div><label>Contact person</label><input name="contact" value="${esc(l.contact||'')}"></div>
+      <div><label>Phone</label><input name="phone" value="${esc(l.phone||'')}"></div>
+      <div><label>City</label><input name="city" value="${esc(l.city||'')}"></div>
+      <div><label>Region</label><input name="region" value="${esc(l.region||'')}" list="regions"></div>
+      <div><label>Number of stores</label><input name="stores" type="number" min="1" value="${l.stores||1}"></div>
+      <div><label>Owner</label><select name="owner">${opt('','—')}${S.staff.filter(s=>s.active).map(s=>opt(s.id,s.name,s.id===l.owner)).join('')}</select></div></div>
+      <datalist id="regions">${[...new Set(S.leads.map(x=>x.region).filter(Boolean))].map(r=>`<option value="${esc(r)}">`).join('')}</datalist>
+      <label>Notes</label><textarea name="notes">${esc(l.notes||'')}</textarea>`,
+    onSubmit: async d => {
+      const row = { name:d.name, contact:d.contact||null, phone:d.phone||null, city:d.city||null, region:d.region||null, stores:Number(d.stores)||1, stores_label:String(d.stores||1), owner:d.owner||null, notes:d.notes||null };
+      const r = l.id ? await sb.from('leads').update(row).eq('id', l.id) : await sb.from('leads').insert({ ...row, source:'Manual' });
+      if (r.error) throw r.error; toast('Saved'); refresh();
+    } });
+}
+function openLead(l){
+  const notes = S.interactions.filter(i => i.lead_id===l.id);
+  const m = modal({ title:l.name, sub:[l.city, l.region, l.stores_label?`${l.stores_label} stores`:'', l.rating?`★ ${l.rating} (${Number(l.reviews||0).toLocaleString('en-IN')})`:''].filter(Boolean).map(esc).join(' · '),
+    body:`${l.phone?`<p><a href="tel:${esc(l.phone)}">${esc(l.phone)}</a> · <a target="_blank" href="https://wa.me/${esc(String(l.phone).replace(/\D/g,''))}">WhatsApp</a>${l.source&&l.source.startsWith('http')?` · <a target="_blank" href="${esc(l.source)}">Google Maps</a>`:''}</p>`:''}
+      ${l.notes?`<p class="muted" style="font-size:13px">${esc(l.notes)}</p>`:''}
+      <div class="grid2"><div><label>Status</label><select name="status">${['New','Contacted','Qualified','Lost'].concat(l.status==='Converted'?['Converted']:[]).map(s=>opt(s,s,l.status===s)).join('')}</select></div>
+      <div><label>Next follow-up</label><input type="date" name="next_followup" value="${l.next_followup||''}"></div></div>
+      <label>Add a note (optional)</label><input name="note" placeholder="What happened on the call?">
+      ${notes.length?`<h2 style="margin-top:16px">History</h2>${notes.map(n=>`<div class="list-item"><div>${esc(n.note)}<div class="muted" style="font-size:13px">${fmtDate(n.happened_on)} · ${esc(n.kind)} · ${esc(staffName(n.created_by))}</div></div></div>`).join('')}`:''}
+      <div class="row" style="margin-top:14px"><button type="button" class="btn small" id="le">Edit details</button>
+      ${isAdmin()?`<button type="button" class="btn small" id="lt">+ Task</button>`:''}
+      ${l.status!=='Converted'?`<button type="button" class="btn small ok" id="lc">Convert to customer</button>`:l.customer_id?`<a class="btn small" href="#/customer/${l.customer_id}">Open customer</a>`:''}</div>`,
+    onSubmit: async d => {
+      const { error } = await sb.from('leads').update({ status:d.status, next_followup:d.next_followup||null }).eq('id', l.id); if (error) throw error;
+      if (d.note) { const r = await sb.from('interactions').insert({ lead_id:l.id, kind:'Call', note:d.note, next_followup:d.next_followup||null }); if (r.error) throw r.error; }
+      toast('Saved'); refresh();
+    } });
+  m.form.querySelector('#le').onclick = () => { m.close(); editLead(l); };
+  if (m.form.querySelector('#lt')) m.form.querySelector('#lt').onclick = () => { m.close(); newTask({ lead_id:l.id, title:`Call ${l.name}` }); };
+  if (m.form.querySelector('#lc')) m.form.querySelector('#lc').onclick = () => { m.close(); editCustomer({ name:l.name, contact:l.contact, phone:l.phone, city:l.city, stores:l.stores, owner:l.owner }, l); };
+}
+
+// ---------- STAFF ----------
+function viewStaff(v){
+  if (!isAdmin()) return viewHome(v);
+  const roleChips = s => s.roles.map(r => `<span class="pill ${r==='admin'?'':'grey'}">${ROLE_NAMES[r]||r}</span>`).join(' ');
+  v.innerHTML = `<div class="row spread"><div><h1>Staff</h1><p class="sub">Who can sign in, and what work they can be given. Estimates and bills only go to Accounts.</p></div>
+    <button class="btn primary" id="add">+ Add staff</button></div>
+    <div class="tablewrap"><table><tr><th>Name</th><th>Phone (login)</th><th>Roles</th><th>Open work</th><th></th></tr>
+    ${S.staff.map(s=>{ const ow = S.orders.filter(o=>!['done','cancelled'].includes(o.stage) && stageOwner(o)===s.id).length + S.tasks.filter(t=>t.status==='open'&&t.assignee===s.id).length;
+      return `<tr style="${s.active?'':'opacity:.5'}"><td class="b">${esc(s.name)}${s.active?'':' (inactive)'}</td><td>${esc(String(s.phone).slice(-10))}</td><td>${roleChips(s)}</td><td>${ow||'—'}</td>
+      <td class="r"><button class="link" data-ed="${s.id}">Edit</button> · <button class="link" data-pw="${s.id}">Reset password</button></td></tr>`; }).join('')}
+    </table></div>
+    <h2>WhatsApp notifications</h2>
+    <div class="card"><p style="margin:0">${S.outboxCount} message${S.outboxCount===1?'':'s'} queued. <span class="muted">Staff get a message when work is allocated to them, when it becomes their turn on an order, and a reminder every morning at 10 for anything still pending. Admins get a daily summary and a message when a task is completed. Sending switches on once the WhatsApp Business number is connected.</span></p></div>`;
+  const roleBoxes = (sel=[]) => Object.entries(ROLE_NAMES).map(([k,l]) => `<label class="chk"><input type="checkbox" name="role_${k}" ${sel.includes(k)?'checked':''}> ${l}</label>`).join('');
+  const pickRoles = d => Object.keys(ROLE_NAMES).filter(k => d['role_'+k]);
+  $('#add').onclick = () => modal({ title:'Add staff', sub:'They sign in with this phone number and password. Share it with them directly.',
+    body:`<label>Name</label><input name="name" required><div class="grid2"><div><label>Phone</label><input name="phone" inputmode="numeric" required placeholder="10-digit mobile"></div>
+      <div><label>Starting password</label><input name="password" minlength="6" required></div></div><label>What do they do?</label>${roleBoxes()}`,
+    submit:'Add', onSubmit: async d => { await callStaffAdmin({ action:'create', name:d.name, phone:d.phone, password:d.password, roles:pickRoles(d) }); toast(`${d.name} added`); refresh(); } });
+  v.querySelectorAll('[data-ed]').forEach(b => b.onclick = () => { const s = S.staff.find(x => x.id===b.dataset.ed);
+    modal({ title:`Edit ${s.name}`, body:`<label>Name</label><input name="name" value="${esc(s.name)}" required><label>Roles</label>${roleBoxes(s.roles)}
+      <label class="chk" style="margin-top:12px"><input type="checkbox" name="active" ${s.active?'checked':''}> Can sign in (active)</label>`,
+      onSubmit: async d => { const roles = pickRoles(d);
+        if (s.id===S.me.id && !roles.includes('admin')) throw new Error("You can't remove your own admin role");
+        const { error } = await sb.from('staff').update({ name:d.name, roles, active:!!d.active }).eq('id', s.id); if (error) throw error; toast('Saved'); refresh(); } }); });
+  v.querySelectorAll('[data-pw]').forEach(b => b.onclick = () => { const s = S.staff.find(x => x.id===b.dataset.pw);
+    modal({ title:`New password for ${s.name}`, body:`<label>Password</label><input name="password" minlength="6" required>`,
+      onSubmit: async d => { await callStaffAdmin({ action:'set_password', id:s.id, password:d.password }); toast('Password changed'); } }); });
+}
+
+// ---------- SETTINGS ----------
+function viewSettings(v){
+  if (!isAdmin()) return viewHome(v);
+  const t = S.settings.slab_targets, g = S.settings.grade_cuts;
+  v.innerHTML = `<h1>Settings</h1><p class="sub">Targets and rules used for grading and collections.</p>
+  <form class="card" id="f" style="max-width:560px">
+    <h2 style="margin-top:0">Quarterly targets (kg)</h2>
+    <div class="grid2"><div><label>Single store</label><input name="t1" type="number" step="0.1" value="${t['1']}"></div>
+    <div><label>2–10 stores</label><input name="t2" type="number" step="0.1" value="${t['2-10']}"></div>
+    <div><label>11–25 stores</label><input name="t3" type="number" step="0.1" value="${t['11-25']}"></div>
+    <div><label>25+ stores</label><input name="t4" type="number" step="0.1" value="${t['26+']}"></div></div>
+    <h2>Grades (% of target reached)</h2>
+    <div class="grid2"><div><label>A at or above</label><input name="gA" type="number" value="${g.A}"></div>
+    <div><label>B at or above</label><input name="gB" type="number" value="${g.B}"></div>
+    <div><label>C at or above</label><input name="gC" type="number" value="${g.C}"></div><div><label>&nbsp;</label><p class="muted" style="margin:8px 0">Below C is D.</p></div></div>
+    <h2>Collections</h2>
+    <label>Standard credit days</label><input name="cd" type="number" min="0" value="${S.settings.credit_days}">
+    <p><button class="btn primary">Save settings</button></p></form>`;
+  $('#f').onsubmit = async e => { e.preventDefault(); const d = Object.fromEntries(new FormData(e.target));
+    const { error } = await sb.from('settings').update({
+      slab_targets:{ '1':+d.t1, '2-10':+d.t2, '11-25':+d.t3, '26+':+d.t4 }, grade_cuts:{ A:+d.gA, B:+d.gB, C:+d.gC }, credit_days:+d.cd }).eq('id', 1);
+    if (error) return toast(friendly(error)); toast('Settings saved'); refresh(); };
+}
+
+// ---------- boot ----------
+async function boot(){
+  $('#app').innerHTML = `<div class="auth"><p class="muted">Loading…</p></div>`;
+  const { data:{ session } } = await sb.auth.getSession();
+  if (!session) {
+    let needsSetup = false; try { needsSetup = (await callStaffAdmin({ action:'status' })).needsSetup; } catch(e){}
+    return renderLogin(needsSetup);
+  }
+  S.uid = session.user.id;
+  try { await loadAll(); } catch(e){ $('#app').innerHTML = `<div class="auth"><div class="card"><p>Couldn't load: ${esc(friendly(e))}</p><button class="btn" onclick="sb.auth.signOut().then(boot)">Sign out</button></div></div>`; return; }
+  if (!S.me || !S.me.active) { await sb.auth.signOut(); $('#app').innerHTML = `<div class="auth"><div class="card"><p>This login isn't active. Ask your admin.</p><button class="btn" onclick="boot()">Back</button></div></div>`; return; }
+  shell();
+  if (!location.hash) location.hash = isAdmin() ? '#/home' : '#/tasks';
+  route();
+}
+boot();
+</script>
+</body>
+</html>
