@@ -170,7 +170,7 @@ async function loadAll(){
     fetchAll('tally_returns','key,date,voucher_number,party,amount,weight_g,reference','date'),
     fetchAll('tally_receipts','key,date,voucher_number,party,amount','date'),
     fetchAll('tally_outstanding','key,party,bill_ref,bill_date,amount_due','bill_date'),
-    sb.from('tally_imports').select('*').order('imported_at',{ascending:false}).limit(1)
+    sb.from('tally_imports').select('*').order('data_upto',{ascending:false,nullsFirst:false}).limit(1)
   ]);
   S.tally = { cust:Object.fromEntries(tc.map(x=>[x.name,x])), import: ti.data?.[0] || null, by:{} };
   const by = S.tally.by, slot = p => by[p] || (by[p] = { sales:[], returns:[], receipts:[], open:[] });
@@ -206,8 +206,18 @@ function customerStats(c){
     const newBills = bills.filter(b => b.src==='app').reduce((s,b)=>s+b.amt,0);
     outstanding = Math.max(0, Number(tc.balance_receivable||0) + newBills - newPays);
     let od = 0;
-    for (const o of (t?.open||[])) { const due = addDays(o.bill_date, creditDays(c)); if (due < today()) { od += Number(o.amount_due); if (!oldestDue || due < oldestDue) oldestDue = due; } }
-    overdue = Math.max(0, Math.min(outstanding, od - newPays));
+    if (t?.open?.length) { // Tally tracks this customer bill-by-bill
+      for (const o of t.open) { const due = addDays(o.bill_date, creditDays(c)); if (due < today()) { od += Number(o.amount_due); if (!oldestDue || due < oldestDue) oldestDue = due; } }
+    } else { // estimate: what's owed sits on the newest bills; anything beyond them is overdue
+      let left = outstanding;
+      for (const b of [...bills].reverse()) {
+        if (left <= 0.5) break;
+        const part = Math.min(left, b.amt); left -= part;
+        if (b.due && b.due < today()) { od += part; oldestDue = b.due; }
+      }
+      if (left > 0.5) { od += left; oldestDue = oldestDue || '2026-04-01'; } // older than this year's bills
+    }
+    overdue = Math.max(0, Math.min(outstanding, od - (t?.open?.length ? newPays : 0)));
     if (!overdue) oldestDue = null;
   } else {
     let left = pays.reduce((s,p) => s + Number(p.amount), 0);
