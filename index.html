@@ -315,7 +315,7 @@ function renderLogin(needsSetup){
 
 // ---------- shell ----------
 function navItems(){
-  const items = [['home','Home'],['tasks','Task list'],['orders','Orders'],['customers','Customers'],['leads','Leads']];
+  const items = [['home','Home'],['dashboard','Dashboard'],['tasks','Task list'],['orders','Orders'],['customers','Customers'],['leads','Leads']];
   if (isAdmin()) items.push(['staff','Staff'],['settings','Settings']);
   return items;
 }
@@ -331,7 +331,7 @@ function route(){
   const [page, id] = (location.hash.replace(/^#\/?/,'') || 'home').split('/');
   $('#nav').innerHTML = navItems().map(([k,l]) => `<a href="#/${k}" class="${(page===k || (page==='customer'&&k==='customers'))?'on':''}">${l}</a>`).join('');
   const v = $('#view');
-  const views = { home:viewHome, tasks:viewTasks, orders:viewOrders, customers:viewCustomers, customer:viewCustomer, leads:viewLeads, staff:viewStaff, settings:viewSettings };
+  const views = { home:viewHome, dashboard:viewDashboard, tasks:viewTasks, orders:viewOrders, customers:viewCustomers, customer:viewCustomer, leads:viewLeads, staff:viewStaff, settings:viewSettings };
   (views[page] || viewHome)(v, id);
 }
 async function refresh(){ await loadAll(); route(); }
@@ -546,21 +546,27 @@ function newTask(pre = {}){
 }
 
 // ---------- CUSTOMERS ----------
-let custSearch = '', custSort = 'overdue';
+let custSearch = '', custSort = 'overdue', custSlab = 'all', custType = 'all';
 function viewCustomers(v){
   const rows = S.customers.map(c => ({ c, ...customerStats(c) }))
-    .filter(x => !custSearch || (x.c.name+' '+(x.c.city||'')+' '+(x.c.phone||'')).toLowerCase().includes(custSearch.toLowerCase()))
+    .filter(x => !custSearch || (x.c.name+' '+(x.c.city||'')+' '+(x.c.phone||'')+' '+(x.c.state||'')).toLowerCase().includes(custSearch.toLowerCase()))
+    .filter(x => custSlab==='all' || x.slab===custSlab).filter(x => custType==='all' || (x.c.account_type||'Not classified')===custType)
     .sort((a,b) => custSort==='overdue' ? b.overdue-a.overdue || b.outstanding-a.outstanding : custSort==='grade' ? ('ABCD—'.indexOf(a.grade)-'ABCD—'.indexOf(b.grade)) : a.c.name.localeCompare(b.c.name));
   v.innerHTML = `<div class="row spread"><div><h1>Customers</h1><p class="sub">${S.customers.length} customers · what each one owes and how they’re tracking against target.</p></div>
     <button class="btn primary" id="add">+ Add customer</button></div>
     <div class="row spread" style="margin-bottom:12px"><div class="tabs" style="margin:0">${[['overdue','Most overdue'],['grade','Grade'],['name','A–Z']].map(([k,l])=>`<button data-s="${k}" class="${custSort===k?'on':''}">${l}</button>`).join('')}</div>
-    <input id="q" placeholder="Search name, city, phone" style="max-width:260px" value="${esc(custSearch)}"></div>
+    <div class="row"><select id="cs" style="width:auto">${[['all','All sizes'],...SLABS.map(k=>[k,SLAB_LABEL[k]])].map(([k,l])=>opt(k,l,custSlab===k)).join('')}</select>
+    <select id="ct" style="width:auto">${[['all','All business types'],...TYPES.map(t=>[t,t]),['Not classified','Not classified']].map(([k,l])=>opt(k,l,custType===k)).join('')}</select>
+    <input id="q" placeholder="Search name, city, state, phone" style="max-width:240px" value="${esc(custSearch)}"></div></div>
+    <p class="muted" style="font-size:13px;margin:0 0 10px">${rows.length} shown</p>
     ${rows.length?`<div class="tablewrap"><table><tr><th>Customer</th><th>Size</th><th>Grade</th><th class="r">To collect</th><th class="r">Overdue</th><th>Last bill</th></tr>
-    ${rows.map(x=>`<tr class="click" onclick="location.hash='#/customer/${x.c.id}'"><td class="b">${esc(x.c.name)}${x.c.key_account?' <span class="pill">Key</span>':''}<div class="muted" style="font-size:13px;font-weight:400">${esc(x.c.city||'')}${x.c.owner?' · '+esc(staffName(x.c.owner)):''}</div></td>
-      <td>${SLAB_LABEL[x.slab]}</td><td><span class="pill g-${x.grade==='—'?'':x.grade} ${x.grade==='—'?'grey':''}">${x.grade==='—'?'New':x.grade}</span></td>
+    ${rows.map(x=>`<tr class="click" onclick="location.hash='#/customer/${x.c.id}'"><td class="b">${esc(x.c.name)}${x.c.key_account?' <span class="pill">Key</span>':''}<div class="muted" style="font-size:13px;font-weight:400">${esc([x.c.city,x.c.state].filter(Boolean).join(', '))}${x.c.owner?' · '+esc(staffName(x.c.owner)):''}</div></td>
+      <td>${SLAB_LABEL[x.slab]}<div class="muted" style="font-size:12px">${x.c.stores>1?x.c.stores+' stores · ':''}${esc(x.c.account_type||'')}</div></td><td><span class="pill g-${x.grade==='—'?'':x.grade} ${x.grade==='—'?'grey':''}">${x.grade==='—'?'New':x.grade}</span></td>
       <td class="r">${x.outstanding?rupees(x.outstanding):'—'}</td><td class="r" style="color:${x.overdue?'var(--bad)':'inherit'}">${x.overdue?rupees(x.overdue):'—'}</td><td>${x.lastBill?fmtDate(x.lastBill):'—'}</td></tr>`).join('')}
     </table></div>`:`<div class="card empty">No customers yet. Add one, or convert a lead.</div>`}`;
   $('#add').onclick = () => editCustomer();
+  $('#cs').onchange = e => { custSlab = e.target.value; route(); };
+  $('#ct').onchange = e => { custType = e.target.value; route(); };
   v.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { custSort = b.dataset.s; route(); });
   const q = $('#q'); q.oninput = () => { custSearch = q.value; const p=q.selectionStart; route(); const n=$('#q'); n.focus(); n.setSelectionRange(p,p); };
 }
@@ -571,6 +577,8 @@ function editCustomer(c = {}, fromLead){
       <div><label>Phone</label><input name="phone" value="${esc(c.phone||'')}"></div>
       <div><label>City</label><input name="city" value="${esc(c.city||'')}"></div>
       <div><label>Number of stores</label><input name="stores" type="number" min="1" value="${c.stores||1}" required></div>
+      <div><label>Business type</label><select name="account_type">${opt('','—')}${TYPES.map(t=>opt(t,t,c.account_type===t)).join('')}</select></div>
+      <div><label>State</label><input name="state" value="${esc(c.state||'')}"></div>
       <div><label>GSTIN</label><input name="gstin" value="${esc(c.gstin||'')}"></div>
       <div><label>Credit days</label><input name="credit_days" type="number" min="0" placeholder="${S.settings.credit_days} (standard)" value="${c.credit_days??''}"></div>
       <div><label>Looked after by</label><select name="owner">${opt('','—')}${S.staff.filter(s=>s.active).map(s=>opt(s.id,s.name,s.id===c.owner)).join('')}</select></div>
@@ -578,7 +586,7 @@ function editCustomer(c = {}, fromLead){
       <label class="chk"><input type="checkbox" name="key_account" ${c.key_account?'checked':''}> Key account</label>
       <label>Notes</label><textarea name="notes">${esc(c.notes||'')}</textarea>`,
     onSubmit: async d => {
-      const row = { name:d.name, contact:d.contact||null, phone:d.phone||null, city:d.city||null, stores:Number(d.stores)||1, gstin:d.gstin||null,
+      const row = { name:d.name, contact:d.contact||null, phone:d.phone||null, city:d.city||null, state:d.state||null, account_type:d.account_type||null, stores:Number(d.stores)||1, gstin:d.gstin||null,
         credit_days: d.credit_days===''?null:Number(d.credit_days), owner:d.owner||null, next_followup:d.next_followup||null, key_account:!!d.key_account, notes:d.notes||null };
       if (c.id) { const { error } = await sb.from('customers').update(row).eq('id', c.id); if (error) throw error; toast('Saved'); refresh(); return; }
       if (fromLead) row.lead_id = fromLead.id;
@@ -610,7 +618,7 @@ function viewCustomer(v, id){
   const canPay = hasRole('accounts');
   v.innerHTML = `<p><a href="#/customers">← Customers</a></p>
   <div class="row spread"><div><h1>${esc(c.name)} ${x.grade!=='—'?`<span class="pill g-${x.grade}">Grade ${x.grade}</span>`:''}</h1>
-    <p class="sub">${[c.contact, c.phone ? `<a href="tel:${esc(c.phone)}">${esc(c.phone)}</a>` : '', c.city, SLAB_LABEL[x.slab], `${c.credit_days ?? S.settings.credit_days}-day credit`, c.owner?'Looked after by '+esc(staffName(c.owner)):''].filter(Boolean).map(s=>s.startsWith('<')?s:esc(s)).join(' · ')}</p></div>
+    <p class="sub">${[c.contact, c.phone ? `<a href="tel:${esc(c.phone)}">${esc(c.phone)}</a>` : '', c.city, c.state, c.account_type, (c.stores>1?c.stores+' stores':null), SLAB_LABEL[x.slab], `${c.credit_days ?? S.settings.credit_days}-day credit`, c.owner?'Looked after by '+esc(staffName(c.owner)):''].filter(Boolean).map(s=>s.startsWith('<')?s:esc(s)).join(' · ')}</p></div>
     <div class="row"><button class="btn" id="edit">Edit</button>${isAdmin()?`<button class="btn" id="task">+ Task</button>`:''}${canPay?`<button class="btn primary" id="pay">Record payment</button>`:''}</div></div>
   <div class="tiles">
     <div class="card tile"><div class="n">${rupees(x.outstanding)}</div><div class="l">To collect</div></div>
@@ -720,6 +728,113 @@ function openLead(l){
   if (m.form.querySelector('#lc')) m.form.querySelector('#lc').onclick = () => { m.close(); editCustomer({ name:l.name, contact:l.contact, phone:l.phone, city:l.city, stores:l.stores, owner:l.owner }, l); };
 }
 
+
+// ---------- DASHBOARD ----------
+let dashPeriod = 'fy', dashSlab = 'all', dashState = 'all', dashType = 'all';
+const SLABS = ['1','2-10','11-25','26+'];
+const TYPES = ['Jewellery chain','Standalone jeweller','Silver specialist','Textile & jewellery retailer','Wholesaler / trader','Manufacturer / exporter','Online / D2C brand','Other'];
+const PAL = ['#3a4a5c','#7d93ab','#b8862c','#2f7d4f','#b23b3b','#6b5b95','#4f9a94','#a3a3a3'];
+function svgBars(items, { fmt = v => v, color = '#3a4a5c', h = 220, labelW = 0 } = {}){
+  // vertical bars: items [{label, value, color}]
+  if (!items.length) return '<div class="empty">No data</div>';
+  const W = Math.max(320, items.length * 64), max = Math.max(...items.map(i => i.value), 1), bw = Math.min(46, (W - 20) / items.length - 12);
+  const bars = items.map((it, i) => { const x = 10 + i * ((W - 20) / items.length) + (((W - 20) / items.length) - bw) / 2; const bh = (it.value / max) * (h - 60); const y = h - 30 - bh;
+    return `<rect x="${x}" y="${y}" width="${bw}" height="${bh}" rx="4" fill="${it.color || color}"><title>${esc(it.label)}: ${esc(fmt(it.value))}</title></rect>
+      <text x="${x + bw/2}" y="${y - 6}" text-anchor="middle" font-size="11" fill="#333">${esc(fmt(it.value))}</text>
+      <text x="${x + bw/2}" y="${h - 12}" text-anchor="middle" font-size="11" fill="#6b6b70">${esc(it.label)}</text>`; }).join('');
+  return `<svg viewBox="0 0 ${W} ${h}" style="width:100%;height:auto;max-height:${h + 20}px">${bars}</svg>`;
+}
+function svgHBars(items, { fmt = v => v, color = '#3a4a5c' } = {}){
+  if (!items.length) return '<div class="empty">No data</div>';
+  const max = Math.max(...items.map(i => i.value), 1);
+  return `<div>${items.map(it => `<div style="display:grid;grid-template-columns:minmax(120px,38%) 1fr auto;gap:8px;align-items:center;margin:6px 0;font-size:13px">
+    <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(it.label)}">${it.href?`<a href="${it.href}">${esc(it.label)}</a>`:esc(it.label)}</div>
+    <div style="background:#f0efec;border-radius:4px;height:14px"><div style="width:${Math.max(1,it.value/max*100)}%;height:14px;border-radius:4px;background:${it.color||color}"></div></div>
+    <div class="b" style="min-width:70px;text-align:right">${esc(fmt(it.value))}</div></div>`).join('')}</div>`;
+}
+function svgStack(rows, keys, colors){
+  // rows [{label, parts:{k:v}}] -> 100% stacked horizontal bars
+  return rows.map(r => { const tot = keys.reduce((s,k)=>s+(r.parts[k]||0),0) || 1;
+    return `<div style="display:grid;grid-template-columns:110px 1fr 50px;gap:8px;align-items:center;margin:8px 0;font-size:13px"><div>${esc(r.label)}</div>
+      <div style="display:flex;height:18px;border-radius:4px;overflow:hidden;background:#f0efec">${keys.map((k,i)=>r.parts[k]?`<div title="${esc(k)}: ${r.parts[k]}" style="width:${r.parts[k]/tot*100}%;background:${colors[i]};color:#fff;font-size:11px;text-align:center;line-height:18px">${r.parts[k]/tot>0.08?r.parts[k]:''}</div>`:'').join('')}</div>
+      <div class="muted">${keys.reduce((s,k)=>s+(r.parts[k]||0),0)}</div></div>`; }).join('') +
+    `<div class="row" style="font-size:12px;margin-top:6px">${keys.map((k,i)=>`<span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${colors[i]}"></span> ${esc(k)}</span>`).join('')}</div>`;
+}
+const lakh = n => { n = Number(n)||0; return n >= 1e7 ? '₹' + (n/1e7).toFixed(2) + ' Cr' : '₹' + (n/1e5).toFixed(1) + ' L'; };
+function agingOf(c, x){
+  // spread what's owed across the newest bills; age each part by its bill date
+  const b = { 'Not due':0, '46–90 days':0, '91–180 days':0, '180+ days':0 };
+  let left = x.outstanding; const cd = creditDays(c);
+  for (const bill of [...x.bills].reverse()) { if (left <= 0.5) break; const part = Math.min(left, bill.amt); left -= part;
+    const age = daysBetween(bill.date, today()); b[age <= cd ? 'Not due' : age <= 90 ? '46–90 days' : age <= 180 ? '91–180 days' : '180+ days'] += part; }
+  if (left > 0.5) b['180+ days'] += left; // older than this year's bills
+  return b;
+}
+function viewDashboard(v){
+  const from = dashPeriod === 'fy' ? '2026-04-01' : daysAgo(dashPeriod === '90' ? 90 : 30);
+  const states = [...new Set(S.customers.map(c => c.state).filter(Boolean))].sort();
+  const all = S.customers.map(c => { const x = customerStats(c); const inP = x.bills.filter(b => (b.date||'') >= from);
+    const t = c.tally_name && S.tally.by[c.tally_name]; const ret = (t?.returns||[]).filter(r => r.date >= from);
+    return { c, x, slab: x.slab, type: c.account_type || 'Not classified', bills: inP,
+      amt: inP.reduce((s,b)=>s+b.amt,0) - ret.reduce((s,r)=>s+Number(r.amount||0),0),
+      g: inP.reduce((s,b)=>s+b.g,0) - ret.reduce((s,r)=>s+Number(r.weight_g||0),0), taxable: inP.reduce((s,b)=>s+(b.taxable||0),0) }; })
+    .filter(r => (dashSlab==='all'||r.slab===dashSlab) && (dashState==='all'||r.c.state===dashState) && (dashType==='all'||r.type===dashType));
+  const buyers = all.filter(r => r.bills.length);
+  const sales = all.reduce((s,r)=>s+r.amt,0), kg = all.reduce((s,r)=>s+r.g,0)/1000, nb = all.reduce((s,r)=>s+r.bills.length,0);
+  const gBills = all.flatMap(r => r.bills).filter(b => b.g > 0);
+  const avgW = gBills.length ? gBills.reduce((s,b)=>s+b.g,0)/gBills.length : 0;
+  const avgR = gBills.length ? gBills.reduce((s,b)=>s+(b.taxable||b.amt)/b.g,0)/gBills.length : 0;
+  const owed = all.reduce((s,r)=>s+r.x.outstanding,0), od = all.reduce((s,r)=>s+r.x.overdue,0);
+  // monthly
+  const months = []; for (let d = new Date(from + 'T00:00:00'); d <= new Date(); d.setMonth(d.getMonth()+1)) { const k = d.toISOString().slice(0,7); if (!months.includes(k)) months.push(k); }
+  const mKg = Object.fromEntries(months.map(m=>[m,0])), mAmt = Object.fromEntries(months.map(m=>[m,0]));
+  all.forEach(r => r.bills.forEach(b => { const m = (b.date||'').slice(0,7); if (m in mKg) { mKg[m] += b.g/1000; mAmt[m] += b.amt; } }));
+  const mLabel = m => new Date(m + '-01T00:00:00').toLocaleDateString('en-IN',{month:'short'});
+  // slabs
+  const bySlab = SLABS.map(s => { const rs = all.filter(r => r.slab === s); return { s, n: rs.length, buyers: rs.filter(r=>r.bills.length).length, amt: rs.reduce((t,r)=>t+r.amt,0), kg: rs.reduce((t,r)=>t+r.g,0)/1000,
+    grades: Object.fromEntries(['A','B','C','D','—'].map(g => [g, rs.filter(r => r.x.grade === g).length])) }; });
+  const byType = [...TYPES, 'Not classified'].map((t,i) => ({ label: t, value: all.filter(r => r.type === t).reduce((s,r)=>s+r.amt,0), color: PAL[i % PAL.length] })).filter(i => i.value > 0).sort((a,b)=>b.value-a.value);
+  const byState = Object.entries(all.reduce((m,r)=>{ const k = r.c.state || 'Unknown'; m[k] = (m[k]||0) + r.amt; return m; }, {})).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([label,value]) => ({ label, value }));
+  const top = [...all].sort((a,b)=>b.g-a.g).slice(0,15).map(r => ({ label: r.c.name, value: r.g/1000, href:'#/customer/'+r.c.id, color: {A:'#2f7d4f',B:'#3a4a5c',C:'#b8862c',D:'#b23b3b'}[r.x.grade] || '#a3a3a3' }));
+  const aging = all.reduce((m,r) => { const a = agingOf(r.c, r.x); for (const k in a) m[k] = (m[k]||0) + a[k]; return m; }, {});
+  const gap = all.filter(r => r.x.grade === 'D' || r.x.grade === 'C').sort((a,b) => (b.x.targetKg - b.x.qGrams/1000) - (a.x.targetKg - a.x.qGrams/1000)).slice(0,10);
+  const classified = S.customers.filter(c => c.account_type).length;
+  const sel = (id, cur, opts) => `<select id="${id}" style="width:auto">${opts.map(([k,l])=>opt(k,l,cur===k)).join('')}</select>`;
+  v.innerHTML = `<div class="row spread"><div><h1>Dashboard</h1><p class="sub">${tallyUpto()?`Tally data up to ${fmtDate(tallyUpto())} · `:''}${classified} of ${S.customers.length} customers classified by store count</p></div>
+    <div class="row">${sel('dp',dashPeriod,[['fy','This financial year'],['90','Last 90 days'],['30','Last 30 days']])}
+      ${sel('ds',dashSlab,[['all','All sizes'],...SLABS.map(s=>[s,SLAB_LABEL[s]])])}
+      ${sel('dt',dashType,[['all','All business types'],...TYPES.map(t=>[t,t]),['Not classified','Not classified']])}
+      ${sel('dst',dashState,[['all','All states'],...states.map(s=>[s,s])])}</div></div>
+  <div class="tiles">
+    <div class="card tile"><div class="n">${lakh(sales)}</div><div class="l">Sales (incl. GST, less returns)</div></div>
+    <div class="card tile"><div class="n">${kg.toLocaleString('en-IN',{maximumFractionDigits:0})} kg</div><div class="l">Silver sold</div></div>
+    <div class="card tile"><div class="n">${nb}</div><div class="l">Bills · ${buyers.length} buying customers</div></div>
+    <div class="card tile"><div class="n">${grams(avgW)}</div><div class="l">Average weight per bill</div></div>
+    <div class="card tile"><div class="n">₹${avgR.toFixed(0)}/g</div><div class="l">Average rate per bill (before GST)</div></div>
+    <div class="card tile"><div class="n" style="color:${od?'var(--bad)':'inherit'}">${lakh(od)}</div><div class="l">Overdue, of ${lakh(owed)} to collect</div></div>
+  </div>
+  <div class="grid2" style="gap:14px;margin-top:14px">
+    <div class="card"><h2 style="margin-top:0">Silver sold by month (kg)</h2>${svgBars(months.map(m=>({label:mLabel(m), value:Math.round(mKg[m])})), { fmt: v => v.toLocaleString('en-IN') })}</div>
+    <div class="card"><h2 style="margin-top:0">Sales by month</h2>${svgBars(months.map(m=>({label:mLabel(m), value:mAmt[m]})), { fmt: lakh, color:'#7d93ab' })}</div>
+    <div class="card"><h2 style="margin-top:0">By store count</h2>
+      <table><tr><th>Size</th><th class="r">Customers</th><th class="r">Buying</th><th class="r">Silver (kg)</th><th class="r">Sales</th><th class="r">Share</th></tr>
+      ${bySlab.map(r=>`<tr><td>${SLAB_LABEL[r.s]}</td><td class="r">${r.n}</td><td class="r">${r.buyers}</td><td class="r">${r.kg.toLocaleString('en-IN',{maximumFractionDigits:0})}</td><td class="r">${lakh(r.amt)}</td><td class="r">${sales?(r.amt/sales*100).toFixed(0):0}%</td></tr>`).join('')}</table></div>
+    <div class="card"><h2 style="margin-top:0">Grades by store count</h2><p class="muted" style="font-size:13px;margin-top:-6px">Last 90 days against each size's quarterly target</p>
+      ${svgStack(bySlab.map(r=>({label:SLAB_LABEL[r.s], parts:{A:r.grades.A,B:r.grades.B,C:r.grades.C,D:r.grades.D,'No bills':r.grades['—']}})), ['A','B','C','D','No bills'], ['#2f7d4f','#3a4a5c','#b8862c','#b23b3b','#c9c6bf'])}</div>
+    <div class="card"><h2 style="margin-top:0">Top 15 customers by silver bought (kg)</h2>${svgHBars(top, { fmt: v => v.toLocaleString('en-IN',{maximumFractionDigits:1}) })}<p class="muted" style="font-size:12px">Bar colour = grade (green A, slate B, amber C, red D)</p></div>
+    <div class="card"><h2 style="margin-top:0">Money owed, by age</h2>${svgBars(Object.entries(aging).map(([label,value],i)=>({label, value, color:['#2f7d4f','#b8862c','#d0702b','#b23b3b'][i]})), { fmt: lakh })}<p class="muted" style="font-size:12px">Estimate: assumes payments clear the oldest bills first.</p></div>
+    <div class="card"><h2 style="margin-top:0">Sales by business type</h2>${svgHBars(byType, { fmt: lakh })}</div>
+    <div class="card"><h2 style="margin-top:0">Sales by state (top 10)</h2>${svgHBars(byState, { fmt: lakh, color:'#7d93ab' })}</div>
+  </div>
+  <h2>Furthest behind target (grade C and D)</h2>
+  ${gap.length?`<div class="tablewrap"><table><tr><th>Customer</th><th>Size</th><th>Type</th><th class="r">Bought, 90 days</th><th class="r">Target</th><th class="r">Short by</th><th>Grade</th></tr>
+    ${gap.map(r=>`<tr class="click" onclick="location.hash='#/customer/${r.c.id}'"><td class="b">${esc(r.c.name)}</td><td>${SLAB_LABEL[r.slab]}</td><td>${esc(r.type)}</td><td class="r">${grams(r.x.qGrams)}</td><td class="r">${r.x.targetKg} kg</td><td class="r">${(r.x.targetKg - r.x.qGrams/1000).toFixed(1)} kg</td><td><span class="pill g-${r.x.grade}">${r.x.grade}</span></td></tr>`).join('')}</table></div>`:'<div class="card empty">Nobody is behind target.</div>'}`;
+  $('#dp').onchange = e => { dashPeriod = e.target.value; route(); };
+  $('#ds').onchange = e => { dashSlab = e.target.value; route(); };
+  $('#dt').onchange = e => { dashType = e.target.value; route(); };
+  $('#dst').onchange = e => { dashState = e.target.value; route(); };
+}
+
 // ---------- STAFF ----------
 function viewStaff(v){
   if (!isAdmin()) return viewHome(v);
@@ -767,7 +882,31 @@ function viewSettings(v){
     <div><label>C at or above</label><input name="gC" type="number" value="${g.C}"></div><div><label>&nbsp;</label><p class="muted" style="margin:8px 0">Below C is D.</p></div></div>
     <h2>Collections</h2>
     <label>Standard credit days</label><input name="cd" type="number" min="0" value="${S.settings.credit_days}">
-    <p><button class="btn primary">Save settings</button></p></form>`;
+    <p><button class="btn primary">Save settings</button></p></form>
+  <div class="card" style="max-width:560px;margin-top:16px"><h2 style="margin-top:0">Import customer research</h2>
+    <p class="muted" style="font-size:14px">Upload the store-count research file (JSON). It fills in each customer's number of stores, business type and city, and adds the source to their notes. Store counts someone already changed by hand are kept.</p>
+    <input type="file" id="research" accept=".json,application/json" aria-label="customer research file"><p id="rmsg" class="muted" style="font-size:14px"></p></div>`;
+  $('#research').onchange = async e => {
+    const msg = $('#rmsg'); const f = e.target.files[0]; if (!f) return;
+    try {
+      const list = JSON.parse(await f.text()); const byName = new Map(S.customers.map(c => [c.tally_name || c.name, c]));
+      let done = 0, skipped = 0, missing = 0;
+      for (const r of list) {
+        const c = byName.get(r.name); if (!c) { missing++; continue; }
+        const manual = (c.notes||'').includes('[stores set by hand]');
+        const tag = `Store count ${r.stores} (${r.confidence})${r.note?': '+r.note:''}${r.source?' · '+r.source:''}`;
+        const notes = [ (c.notes||'').split('\n').filter(l => !l.startsWith('Store count ')).join('\n').trim(), tag ].filter(Boolean).join('\n');
+        const upd = { account_type: r.business_type || c.account_type || null, notes };
+        if (!manual) upd.stores = Math.max(1, Number(r.stores)||1);
+        if (!c.city && r.city) upd.city = r.city;
+        const { error } = await sb.from('customers').update(upd).eq('id', c.id);
+        if (error) { skipped++; } else done++;
+        if (done % 25 === 0) msg.textContent = `Updating… ${done} of ${list.length}`;
+      }
+      msg.textContent = `Done. ${done} customers updated${skipped?`, ${skipped} failed`:''}${missing?`, ${missing} not found in the CRM`:''}.`;
+      await loadAll();
+    } catch (ex) { msg.textContent = 'Could not read that file: ' + friendly(ex); }
+  };
   $('#f').onsubmit = async e => { e.preventDefault(); const d = Object.fromEntries(new FormData(e.target));
     const { error } = await sb.from('settings').update({
       slab_targets:{ '1':+d.t1, '2-10':+d.t2, '11-25':+d.t3, '26+':+d.t4 }, grade_cuts:{ A:+d.gA, B:+d.gB, C:+d.gC }, credit_days:+d.cd }).eq('id', 1);
