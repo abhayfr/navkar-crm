@@ -170,9 +170,11 @@ async function loadAll(){
     fetchAll('tally_returns','key,date,voucher_number,party,amount,weight_g,reference','date'),
     fetchAll('tally_receipts','key,date,voucher_number,party,amount','date'),
     fetchAll('tally_outstanding','key,party,bill_ref,bill_date,amount_due','bill_date'),
-    sb.from('tally_imports').select('*').order('data_upto',{ascending:false,nullsFirst:false}).limit(1)
+    sb.from('tally_imports').select('*').order('imported_at',{ascending:false}).limit(50)
   ]);
-  S.tally = { cust:Object.fromEntries(tc.map(x=>[x.name,x])), import: ti.data?.[0] || null, by:{} };
+  const imps = ti.data || [];
+  const upto = imps.map(x=>x.data_upto).filter(Boolean).sort().pop() || null;
+  S.tally = { cust:Object.fromEntries(tc.map(x=>[x.name,x])), import: upto ? { data_upto: upto } : null, lastSeen: imps[0]?.imported_at || null, by:{} };
   const by = S.tally.by, slot = p => by[p] || (by[p] = { sales:[], returns:[], receipts:[], open:[] });
   ts.forEach(x => slot(x.party).sales.push(x)); tr.forEach(x => slot(x.party).returns.push(x));
   trc.forEach(x => slot(x.party).receipts.push(x)); to.forEach(x => slot(x.party).open.push(x));
@@ -348,7 +350,7 @@ function viewHome(v){
   const graded = stats.filter(x => x.grade!=='—').sort((a,b)=>'ABCD'.indexOf(a.grade)-'ABCD'.indexOf(b.grade) || b.pct-a.pct);
   const owed = stats.filter(x => x.overdue>0).sort((a,b)=>b.overdue-a.overdue).slice(0,8);
   v.innerHTML = `<h1>Good ${new Date().getHours()<12?'morning':new Date().getHours()<17?'afternoon':'evening'}, ${esc(S.me.name.split(' ')[0])}</h1>
-  <p class="sub">${myOrders||myTasks ? `You have <a href="#/tasks">${myOrders} order step${myOrders===1?'':'s'} and ${myTasks} task${myTasks===1?'':'s'}</a> waiting.` : 'Nothing is waiting on you right now.'}${tallyUpto()?` <span class="muted">· Tally data up to ${fmtDate(tallyUpto())}</span>`:''}</p>
+  <p class="sub">${myOrders||myTasks ? `You have <a href="#/tasks">${myOrders} order step${myOrders===1?'':'s'} and ${myTasks} task${myTasks===1?'':'s'}</a> waiting.` : 'Nothing is waiting on you right now.'}${tallyUpto()?` <span class="muted">· Tally data up to ${fmtDate(tallyUpto())}</span>`:''}</p>${syncBanner()}
   <div class="tiles">
     <div class="card tile"><div class="n">${active.length}</div><div class="l">Orders in progress</div></div>
     <div class="card tile"><div class="n" style="color:${unassigned.length?'var(--bad)':'inherit'}">${unassigned.length}</div><div class="l">Orders waiting for someone to be allocated</div></div>
@@ -370,6 +372,14 @@ function viewHome(v){
   bindOrderCards(v);
 }
 
+function syncBanner(){
+  if (!isAdmin()) return '';
+  const seen = S.tally?.lastSeen; if (!seen) return `<div class="card" style="border-color:#e8c98f;background:var(--warn-soft);margin-bottom:14px">Tally isn't connected yet. Bills, payments and balances will appear once the sync runs on the Tally computer.</div>`;
+  const mins = Math.round((Date.now() - new Date(seen)) / 60000);
+  if (mins <= 90) return '';
+  const ago = mins < 60*24 ? `${Math.round(mins/60)} hours` : `${Math.round(mins/1440)} days`;
+  return `<div class="card" style="border-color:#e8c98f;background:var(--warn-soft);margin-bottom:14px"><b>Tally sync isn't running.</b> Last update ${ago} ago. On the Tally computer: open Tally, then double-click <b>start_sync.bat</b>.</div>`;
+}
 // ---------- ORDER CARD ----------
 function orderCard(o){
   const idx = stepIndex(o), cancelled = o.stage==='cancelled';
