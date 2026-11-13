@@ -786,7 +786,7 @@ function viewDashboard(v){
   const avgR = gBills.length ? gBills.reduce((s,b)=>s+(b.taxable||b.amt)/b.g,0)/gBills.length : 0;
   const owed = all.reduce((s,r)=>s+r.x.outstanding,0), od = all.reduce((s,r)=>s+r.x.overdue,0);
   // monthly
-  const months = []; for (let d = new Date(from + 'T00:00:00'); d <= new Date(); d.setMonth(d.getMonth()+1)) { const k = d.toISOString().slice(0,7); if (!months.includes(k)) months.push(k); }
+  const months = []; { let [y,m] = from.slice(0,7).split('-').map(Number); const end = today().slice(0,7); while (true) { const k = `${y}-${String(m).padStart(2,'0')}`; months.push(k); if (k >= end) break; m++; if (m > 12) { m = 1; y++; } } }
   const mKg = Object.fromEntries(months.map(m=>[m,0])), mAmt = Object.fromEntries(months.map(m=>[m,0]));
   all.forEach(r => r.bills.forEach(b => { const m = (b.date||'').slice(0,7); if (m in mKg) { mKg[m] += b.g/1000; mAmt[m] += b.amt; } }));
   const mLabel = m => new Date(m + '-01T00:00:00').toLocaleDateString('en-IN',{month:'short'});
@@ -808,7 +808,7 @@ function viewDashboard(v){
   <div class="tiles">
     <div class="card tile"><div class="n">${lakh(sales)}</div><div class="l">Sales (incl. GST, less returns)</div></div>
     <div class="card tile"><div class="n">${kg.toLocaleString('en-IN',{maximumFractionDigits:0})} kg</div><div class="l">Silver sold</div></div>
-    <div class="card tile"><div class="n">${nb}</div><div class="l">Bills · ${buyers.length} buying customers</div></div>
+    <div class="card tile"><div class="n">${nb.toLocaleString('en-IN')}</div><div class="l">Bills · ${buyers.length} buying customers</div></div>
     <div class="card tile"><div class="n">${grams(avgW)}</div><div class="l">Average weight per bill</div></div>
     <div class="card tile"><div class="n">₹${avgR.toFixed(0)}/g</div><div class="l">Average rate per bill (before GST)</div></div>
     <div class="card tile"><div class="n" style="color:${od?'var(--bad)':'inherit'}">${lakh(od)}</div><div class="l">Overdue, of ${lakh(owed)} to collect</div></div>
